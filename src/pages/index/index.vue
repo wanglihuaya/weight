@@ -37,6 +37,7 @@ const activeKey = ref('overview')
 const instance = getCurrentInstance()
 let offsetX: any = null
 let containerScale: any = null
+let indicatorScale: any = null
 let tabWidthPercent = 0
 let useWorklet = false
 
@@ -62,6 +63,7 @@ onMounted(() => {
     // 创建共享变量
     offsetX = shared(0)
     containerScale = shared(1)
+    indicatorScale = shared(1)
 
     // 计算单个 tab 的宽度百分比
     tabWidthPercent = 100 / tabs.length
@@ -74,7 +76,7 @@ onMounted(() => {
         'worklet'
         return {
           width: `${tabWidthPercent}%`,
-          transform: `translateX(${offsetX.value}%)`,
+          transform: `translateX(${offsetX.value}%) scale(${indicatorScale.value})`,
         }
       })
 
@@ -118,6 +120,22 @@ const handleContainerTouchEnd = () => {
   }
 }
 
+// 松开时恢复
+const handleTabTouchEnd = (e: any) => {
+  const tabKey = e?.currentTarget?.dataset.tabKey
+  if (useWorklet && indicatorScale) {
+    const { spring } = wx.worklet
+    indicatorScale.value = spring(1, {
+      stiffness: 400,
+      damping: 25,
+    })
+  }
+  // // 如果不是当前tab，触发切换
+  // if (tabKey && tabKey !== activeKey.value) {
+  //   handleTabChange(e)
+  // }
+}
+
 const handleTabChange = debounce((e: any) => {
   const newKey = e?.currentTarget?.dataset.tabKey
   if (!newKey || newKey === activeKey.value) return
@@ -125,19 +143,23 @@ const handleTabChange = debounce((e: any) => {
   activeKey.value = newKey
 
   // 使用 worklet 动画更新位置
-  if (useWorklet && offsetX) {
+  if (useWorklet && offsetX && indicatorScale) {
     try {
       const { spring } = wx.worklet
       const index = tabs.findIndex(tab => tab.key === newKey)
       console.log(`🎯 切换到 tab ${index}, 目标位置: ${index * 100}%`)
 
+      // 切换时背景先放大
+      indicatorScale.value = spring(1.5, {
+        stiffness: 400,
+        damping: 25,
+      })
+
       // 使用 spring 动画实现物理弹性效果
       offsetX.value = spring(index * 100, {
-        stiffness: 250, // 弹性系数，值越大回弹越快
-        damping: 20,    // 阻尼系数，控制摆动次数
-        mass: 1,        // 质量，值越大动作越沉重
-      }, () => {
-        'worklet'
+        stiffness: 250,
+        damping: 20,
+        mass: 1,
       })
     } catch (error) {
       console.error('❌ 动画更新失败:', error)
@@ -152,7 +174,7 @@ const handleTabChange = debounce((e: any) => {
       <!-- Animated Tabs 组件 -->
       <!-- Tab 容器 (Web Style) -->
       <view
-        class="tabs-container rounded-full w-full bg-white p-[12rpx] shadow-[0_8rpx_32rpx_rgba(0,0,0,0.12)]"
+        class="tabs-container rounded-full w-full bg-white/30 backdrop-blur-xl p-[12rpx] shadow-[0_8rpx_32rpx_rgba(0,0,0,0.08)] border border-white/50"
         @touchstart="handleContainerTouchStart"
         @touchend="handleContainerTouchEnd"
         @touchcancel="handleContainerTouchEnd"
@@ -160,7 +182,7 @@ const handleTabChange = debounce((e: any) => {
         <view class="relative flex rounded-full">
           <!-- 滑动背景指示器 (Glider) - 通过 worklet 控制动画 -->
           <view
-            class="indicator-bg absolute bottom-0 left-0 top-0 z-[1] rounded-full bg-[#e6eef9]"
+            class="indicator-bg absolute bottom-0 left-0 top-0 z-[1] rounded-full bg-white/40 shadow-[0_4rpx_16rpx_rgba(24,94,224,0.15)] border border-white/60"
             :style="indicatorStyleFallback"
           />
 
@@ -172,12 +194,13 @@ const handleTabChange = debounce((e: any) => {
             hover-class="tab-hover"
             :data-tab-key="tab.key"
             @touchstart="handleTabChange"
+            @touchend="handleTabTouchEnd"
+            @touchcancel="handleTabTouchEnd"
           >
-            <!-- @tap="handleTabChange" -->
             <!-- 图标 -->
             <view
-              class="mb-[4rpx] transition-all duration-200"
-              :class="activeKey === tab.key ? 'text-[#185ee0] scale-110' : 'text-gray-400'"
+              class="mb-[4rpx] transition-all duration-150"
+              :class="activeKey === tab.key ? 'text-blue-400 scale-110' : 'text-gray-400'"
               style="font-size: 36rpx; line-height: 1;"
             >
               <view :class="`${tab.icon}`" />
@@ -185,8 +208,8 @@ const handleTabChange = debounce((e: any) => {
 
             <!-- 标签文字 -->
             <view
-              class="text-[22rpx] font-semibold transition-colors duration-200"
-              :class="activeKey === tab.key ? 'text-[#185ee0]' : 'text-gray-500'"
+              class="text-[22rpx] font-semibold transition-colors duration-150"
+              :class="activeKey === tab.key ? 'text-blue-400' : 'text-gray-500'"
             >
               {{ tab.label }}
             </view>
@@ -198,14 +221,14 @@ const handleTabChange = debounce((e: any) => {
 </template>
 
 <style scoped>
-/* ========== 滑动指示器动画 (备用 CSS transition) ========== */
+/* 滑动指示器动画由 worklet 控制 */
 .indicator-bg {
-  /* 备用方案使用弹性贝塞尔曲线模仿物理效果 */
+  /* Worklet 动画优先，CSS 作为备用 */
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ========== 点击态样式 ========== */
+/* 点击态样式 */
 .tab-hover {
-  opacity: 0.8;
+  opacity: 0.7;
 }
 </style>
