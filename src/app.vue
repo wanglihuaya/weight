@@ -6,7 +6,6 @@ defineAppJson({
     'pages/index/index',
     'pages/data/index',
     'pages/form/index',
-    'pages/list/index',
     'pages/ability/index',
     'pages/test/index',
   ],
@@ -87,5 +86,6 @@ onLaunch(() => {
 page {
   font-family: 'HarmonyOS Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background-color: #f6f7fb;
+  --td-navbar-background: transparent;
 }
 </style>

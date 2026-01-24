@@ -1,17 +1,19 @@
-import type { Config } from 'tailwindcss'
-import { getIconCollections, iconsPlugin } from '@egoist/tailwindcss-icons'
+import { getIconCollections, iconsPlugin } from '@egoist/tailwindcss-icons';
+import { addIconSelectors } from "@iconify/tailwind";
+import type { Config } from 'tailwindcss';
 
 export default {
   content: [
     // 添加你需要提取的文件目录
-    'src/**/*.{wxml,js,ts,vue}',
+    "src/**/*.{wxml,js,ts,vue}",
   ],
   theme: {
     extend: {},
   },
   plugins: [
+    addIconSelectors(["mdi", "lucide"]),
     iconsPlugin({
-      collections: getIconCollections(['mdi', 'lucide']),
+      collections: getIconCollections(["mdi", "lucide"]),
     }),
   ],
   corePlugins: {
@@ -19,4 +21,4 @@ export default {
     preflight: false,
     container: false,
   },
-} satisfies Config
+} satisfies Config;

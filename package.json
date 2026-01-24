@@ -18,8 +18,9 @@
   },
   "devDependencies": {
     "@egoist/tailwindcss-icons": "^1.9.0",
-    "@iconify-json/mdi": "^1.2.3",
     "@iconify-json/lucide": "^1.2.86",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify/tailwind": "^1.2.0",
     "autoprefixer": "^10.4.23",
     "miniprogram-api-typings": "^5.0.0",
     "postcss": "^8.5.6",
