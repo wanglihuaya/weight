@@ -24,6 +24,7 @@ definePageJson({
     "t-icon": "tdesign-miniprogram/icon/icon"
   },
   navigationStyle: 'custom',
+  navigationBarTextStyle: 'black',
   componentFramework: "glass-easel",
   renderer: "skyline",
   rendererOptions: {
@@ -58,7 +59,9 @@ const tabs: TabItem[] = [
 // ==========================================
 const instance = getCurrentInstance()
 const activeKey = ref('data')
-const navbarTitle = ref('体重记录')
+const navbarTitle = computed(() => {
+  return tabs.find(tab => tab.key === activeKey.value)?.label || ''
+})
 const scrollTop = ref(0)
 const useWorklet = ref(false)
 
@@ -75,14 +78,6 @@ let tabWidthPercent = 0
 // ==========================================
 // 计算属性 (Computed Styles)
 // ==========================================
-
-// 导航栏背景动态样式（模糊与透明度渐变）
-const navbarBgStyle = computed(() => {
-  const progress = Math.min(scrollTop.value / 300, 1)
-  const blurValue = progress * 5
-  const bgOpacity = 0.1 + progress * 0.4
-  return `backdrop-filter: blur(${blurValue}px); background: linear-gradient(to bottom, rgba(255, 255, 255, ${bgOpacity}), transparent);`
-})
 
 // 导航栏布局信息
 const navInfo = getNavbarInfo()
@@ -235,6 +230,23 @@ onMounted(() => {
         return { transform: `scale(${containerScale.value})` }
       })
 
+      // 导航栏背景模糊与透明度渐变
+      // 小程序限制: backdrop-filter 无法直接通过 Worklet 动画
+      // 解决方案: 使用多层叠加 + opacity 动画模拟渐变效果
+      pageInstance.applyAnimatedStyle('.navbar-bg', () => {
+        'worklet'
+        // 计算滚动进度 (0 ~ 1)
+        const progress = Math.min(scrollY.value / 300, 1)
+        // 透明度从 0 渐变到 1
+        const opacity = progress
+        // 使用 CSS 变量传递模糊值 (仅部分小程序支持)
+        // 主层透明度 + mask-image 实现平滑边缘
+        return {
+          opacity,
+          // 小程序中 backdrop-filter 需要配合 mask-image 实现平滑过渡
+        }
+      })
+
       useWorklet.value = true
       console.log('✅ Worklet 动画初始化成功')
     }
@@ -249,29 +261,35 @@ onMounted(() => {
   <!-- 顶部导航栏 (Custom Navbar) -->
   <!-- ========================================== -->
   <view
-    class="w-full fixed top-0 left-0 z-50 flex items-center justify-between"
-    :style="navbarBgStyle + navbarHeightStyle"
+    class="w-full fixed top-0 left-0 z-50"
+    :style="navbarHeightStyle"
   >
-    <!-- 左侧操作按钮 -->
-    <view
-      class="navbar-left-btn shrink-0 grow-0 flex items-center justify-center p-1 shadow-sm bg-white/60 backdrop-blur-xs rounded-full hover:bg-white/80 transition-colors duration-150 ml-3"
-      @touchstart="handleNavbarLeftTouchStart"
-      @touchend="handleNavbarLeftTouchEnd"
-      @touchcancel="handleNavbarLeftTouchEnd"
-    >
-      <t-icon name="chevron-left" size="64rpx" data-name="chevron-left" />
-    </view>
+    <!-- 背景模糊层 (Worklet 动画控制 opacity) -->
+    <view class="navbar-bg absolute inset-0 w-full h-full" />
 
-    <!-- 中心标题 (随滚动渐显) -->
-    <view
-      class="navbar-title absolute w-full text-[#1c1c3c] text-lg font-semibold text-center pointer-events-none"
-      :style="navbarTitleStyle"
-    >
-      {{ navbarTitle }}
-    </view>
+    <!-- 内容层 -->
+    <view class="relative w-full h-full flex items-center justify-between">
+      <!-- 左侧操作按钮 -->
+      <view
+        class="navbar-left-btn -translate-y-2 shrink-0 grow-0 flex items-center justify-center p-1 shadow-sm bg-white/60 backdrop-blur-xs rounded-full hover:bg-white/80 transition-colors duration-150 ml-3"
+        @touchstart="handleNavbarLeftTouchStart"
+        @touchend="handleNavbarLeftTouchEnd"
+        @touchcancel="handleNavbarLeftTouchEnd"
+      >
+        <t-icon name="chevron-left" size="64rpx" data-name="chevron-left" />
+      </view>
 
-    <!-- 右侧胶囊占位 -->
-    <view :style="capsuleWidth"></view>
+      <!-- 中心标题 (随滚动渐显) -->
+      <view
+        class="navbar-title absolute w-full text-[#1c1c3c] text-lg font-semibold text-center pointer-events-none"
+        :style="navbarTitleStyle"
+      >
+        {{ navbarTitle }}
+      </view>
+
+      <!-- 右侧胶囊占位 -->
+      <view :style="capsuleWidth"></view>
+    </view>
   </view>
 
   <!-- ========================================== -->
@@ -284,7 +302,7 @@ onMounted(() => {
     :show-scrollbar="false"
     :safe-area-inset-top="false"
     scroll-y
-    class="h-screen pt-[var(--status-bar-height)] w-full bg-gradient-to-b from-blue-50 to-blue-100 text-[#1c1c3c] px-4"
+    class="h-screen pt-[var(--status-bar-height)] w-full bg-gray-100 text-[#1c1c3c] px-4 box-border"
     @scroll="handleScroll"
   >
     <!-- 顶部避让空间 -->
@@ -294,15 +312,71 @@ onMounted(() => {
     <view class="page-title font-semibold text-lg">{{ navbarTitle }}</view>
 
     <!-- 内容列表容器 -->
-    <view class="pb-[200rpx]">
+    <view class="pb-[200rpx]" v-if="activeKey==='data'">
       <view
         v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
         :key="item"
         class="mb-4"
       >
-        <view class="h-[200rpx] w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60">
-          <view class="i-mdi-gauge size-10 text-red-400"></view>
-          <view class="mdi--airplane-settings iconify-color size-10"></view>
+        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
+          <view class="i-mdi-gauge size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+          <view class="mdi--gauge iconify-color  size-10"></view>
+        </view>
+      </view>
+    </view>
+    <view class="pb-[200rpx]" v-if="activeKey==='widget'">
+      <view
+        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
+        :key="item"
+        class="mb-4"
+      >
+        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
+          <view class="i-mdi-widgets size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+          <view class="mdi--widgets iconify-color  size-10"></view>
+        </view>
+      </view>
+    </view>
+    <view class="pb-[200rpx]" v-if="activeKey==='weight'">
+      <view
+        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
+        :key="item"
+        class="mb-4"
+      >
+        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
+          <view class="i-mdi-calendar-multiselect size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
+        </view>
+      </view>
+    </view>
+    <view class="pb-[200rpx]" v-if="activeKey==='settings'">
+      <view
+        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
+        :key="item"
+        class="mb-4"
+      >
+        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
+          <view class="i-mdi-cog size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
+          <view class="mdi--cog iconify-color  size-10"></view>
         </view>
       </view>
     </view>
@@ -310,7 +384,8 @@ onMounted(() => {
     <!-- ========================================== -->
     <!-- 悬浮 TabBar (Floating Animted Tabs) -->
     <!-- ========================================== -->
-    <t-fab class="w-full !right-0 px-4 !bottom-[calc(env(safe-area-inset-bottom)+16rpx)]">
+    <!-- <t-fab class="w-full !right-0 px-4 !bottom-[calc(env(safe-area-inset-bottom)+0rpx)]"> -->
+    <t-fab class="w-full !right-0 px-4 !bottom-[32rpx]">
       <view
         class="tabs-container rounded-full w-full bg-white/80 backdrop-blur-sm p-[12rpx] shadow-[0_8rpx_32rpx_rgba(0,0,0,0.08)] border border-white/50"
         @touchstart="handleContainerTouchStart"
@@ -328,7 +403,7 @@ onMounted(() => {
           <view
             v-for="tab in tabs"
             :key="tab.key"
-            class="relative z-[2] flex flex-1 flex-col gap-1 items-center justify-center py-[10rpx] transition-opacity duration-150"
+            class="relative z-[2] flex flex-1 flex-col items-center justify-center py-[12rpx] transition-opacity duration-150"
             hover-class="tab-hover"
             :data-tab-key="tab.key"
             @touchstart="handleTabChange"
@@ -336,17 +411,12 @@ onMounted(() => {
             @touchcancel="handleTabTouchEnd"
           >
             <!-- 图标与激活状态反馈 -->
-            <view
-              class="transition-all duration-150"
-              :class="activeKey === tab.key ? 'scale-110' : ''"
-              style="line-height: 1;"
-            >
+
               <image
                 :src="tab.key === activeKey ? tab.activeIcon : tab.icon"
                 class="size-6"
                 mode="aspectFit"
               ></image>
-            </view>
 
             <!-- 标签文本 -->
             <view
@@ -363,6 +433,66 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* 导航栏背景模糊层 (Worklet 动画控制 opacity) */
+.navbar-bg {
+  /* 固定模糊值，通过 opacity 控制可见性 */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* 延长渐变遮罩，实现更平滑的边缘过渡 (70% -> 100%) */
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 70%,
+    rgba(0, 0, 0, 0.85) 78%,
+    rgba(0, 0, 0, 0.65) 85%,
+    rgba(0, 0, 0, 0.4) 90%,
+    rgba(0, 0, 0, 0.2) 95%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 70%,
+    rgba(0, 0, 0, 0.85) 78%,
+    rgba(0, 0, 0, 0.65) 85%,
+    rgba(0, 0, 0, 0.4) 90%,
+    rgba(0, 0, 0, 0.2) 95%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  /* 初始状态：完全透明，通过 Worklet 渐变到 1 */
+  opacity: 0;
+  /* 延长背景渐变，从 75% 开始变淡 */
+  /* background: white; */
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.92) 60%,
+    rgba(255, 255, 255, 1) 100%,
+    transparent 100%
+  );
+  /* 硬件加速提示 */
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+/* 导航栏底部柔和阴影 (缓解割裂感) */
+.navbar-bg::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 180rpx;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.03) 0%,
+    rgba(0, 0, 0, 0.06) 30%,
+    rgba(0, 0, 0, 0.04) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
 /* 指示器备用动画 */
 .indicator-bg {
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
