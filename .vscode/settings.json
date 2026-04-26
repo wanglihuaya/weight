@@ -6,5 +6,8 @@
   "vue.tsserver.useWorkspaceTsdk": false,
   "tailwindCSS.includeLanguages": {
     "wxml": "html"
+  },
+  "chat.tools.terminal.autoApprove": {
+    "true": true
   }
 }

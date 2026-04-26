@@ -3,17 +3,18 @@
  * 首页 - 体重记录与数据展示
  * 采用 Skyline 渲染内核与 Worklet 动画引擎
  */
-import { debounce } from '@/utils/common'
+import WeightDashboard from '@/components/WeightDashboard/index.vue'
 import { getNavbarInfo } from '@/utils/navbar'
-import dataIconActive from 'public/tabbar/data-active.png'
-import dataIcon from 'public/tabbar/data.png'
-import settingsIconActive from 'public/tabbar/setting-active.png'
-import settingsIcon from 'public/tabbar/setting.png'
-import weightIconActive from 'public/tabbar/weight-active.png'
-import weightIcon from 'public/tabbar/weight.png'
-import widgetIconActive from 'public/tabbar/widgets-active.png'
-import widgetIcon from 'public/tabbar/widgets.png'
-import { computed, getCurrentInstance, onMounted, ref } from 'wevu'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'wevu'
+import { createTabSwitchContext, runTabSwitchAnimation } from './tabSwitch'
+import dataIconActive from '/tabbar/data-active.png'
+import dataIcon from '/tabbar/data.png'
+import settingsIconActive from '/tabbar/setting-active.png'
+import settingsIcon from '/tabbar/setting.png'
+import weightIconActive from '/tabbar/weight-active.png'
+import weightIcon from '/tabbar/weight.png'
+import widgetIconActive from '/tabbar/widgets-active.png'
+import widgetIcon from '/tabbar/widgets.png'
 
 // ==========================================
 // 页面配置 (Page Configurations)
@@ -27,6 +28,7 @@ definePageJson({
   navigationBarTextStyle: 'black',
   componentFramework: "glass-easel",
   renderer: "skyline",
+  disableScroll: true,
   rendererOptions: {
     skyline: {
       defaultDisplayBlock: true,
@@ -43,12 +45,13 @@ definePageJson({
 interface TabItem {
   key: string
   label: string
+  title?: string
   icon: string
   activeIcon?: string
 }
 
 const tabs: TabItem[] = [
-  { key: 'data', label: '体重', icon: weightIcon, activeIcon: weightIconActive },
+  { key: 'data', label: '体重', title:'我的体重', icon: weightIcon, activeIcon: weightIconActive },
   { key: 'weight', label: '数据', icon: dataIcon, activeIcon: dataIconActive },
   { key: 'widget', label: '小组件', icon: widgetIcon, activeIcon: widgetIconActive },
   { key: 'settings', label: '设置', icon: settingsIcon, activeIcon: settingsIconActive },
@@ -60,7 +63,7 @@ const tabs: TabItem[] = [
 const instance = getCurrentInstance()
 const activeKey = ref('data')
 const navbarTitle = computed(() => {
-  return tabs.find(tab => tab.key === activeKey.value)?.label || ''
+  return tabs.find(tab => tab.key === activeKey.value)?.title|| tabs.find(tab => tab.key === activeKey.value)?.label
 })
 const scrollTop = ref(0)
 const useWorklet = ref(false)
@@ -74,6 +77,8 @@ let indicatorScale: any = null  // 指示器缩放
 let navbarLeftScale: any = null // 导航栏左侧按钮缩放
 let scrollY: any = null        // 滚动位置同步
 let tabWidthPercent = 0
+let indicatorResetTimer: ReturnType<typeof setTimeout> | null = null
+const INDICATOR_RESET_DELAY = 140
 
 // ==========================================
 // 计算属性 (Computed Styles)
@@ -137,37 +142,44 @@ const handleContainerTouchEnd = () => {
   }
 }
 
-// Tab 指示器松开反馈
-const handleTabTouchEnd = () => {
-  if (useWorklet.value && indicatorScale) {
-    const { spring } = wx.worklet
-    indicatorScale.value = spring(1, { stiffness: 400, damping: 25 }, () => { 'worklet' })
-  }
-}
-
 // Tab 切换逻辑
-const handleTabChange = debounce((e: any) => {
+const handleTabChange = (e: any) => {
   const newKey = e?.currentTarget?.dataset.tabKey
   if (!newKey || newKey === activeKey.value) return
+
+  const index = tabs.findIndex(tab => tab.key === newKey)
+  if (index === -1) return
 
   activeKey.value = newKey
 
   // 更新 Worklet 动画
   if (useWorklet.value && offsetX && indicatorScale) {
     const { spring } = wx.worklet
-    const index = tabs.findIndex(tab => tab.key === newKey)
+    const context = createTabSwitchContext({
+      scaleTo(value) {
+        indicatorScale.value = spring(value, { stiffness: 400, damping: 25 }, () => { 'worklet' })
+      },
+      moveTo(value) {
+        offsetX.value = spring(value, {
+          stiffness: 250,
+          damping: 20,
+          mass: 1,
+        }, () => { 'worklet' })
+      },
+      scheduleReset(onReset) {
+        if (indicatorResetTimer) {
+          clearTimeout(indicatorResetTimer)
+        }
+        indicatorResetTimer = setTimeout(() => {
+          indicatorResetTimer = null
+          onReset()
+        }, INDICATOR_RESET_DELAY)
+      },
+    })
 
-    // 点击时指示器先放大
-    indicatorScale.value = spring(1.5, { stiffness: 400, damping: 25 }, () => { 'worklet' })
-
-    // 平滑平移指示器
-    offsetX.value = spring(index * 100, {
-      stiffness: 250,
-      damping: 20,
-      mass: 1,
-    }, () => { 'worklet' })
+    runTabSwitchAnimation(context, index)
   }
-}, 50)
+}
 
 // ==========================================
 // 生命周期与动画初始化 (Lifecycle & Initializer)
@@ -254,6 +266,13 @@ onMounted(() => {
     console.error('❌ Worklet 初始化失败:', error)
   }
 })
+
+onUnmounted(() => {
+  if (indicatorResetTimer) {
+    clearTimeout(indicatorResetTimer)
+    indicatorResetTimer = null
+  }
+})
 </script>
 
 <template>
@@ -302,6 +321,7 @@ onMounted(() => {
     :show-scrollbar="false"
     :safe-area-inset-top="false"
     scroll-y
+    enhanced
     class="h-screen pt-[var(--status-bar-height)] w-full bg-gray-100 text-[#1c1c3c] px-4 box-border"
     @scroll="handleScroll"
   >
@@ -312,22 +332,8 @@ onMounted(() => {
     <view class="page-title font-semibold text-lg">{{ navbarTitle }}</view>
 
     <!-- 内容列表容器 -->
-    <view class="pb-[200rpx]" v-if="activeKey==='data'">
-      <view
-        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
-        :key="item"
-        class="mb-4"
-      >
-        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
-          <view class="i-mdi-gauge size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-          <view class="mdi--gauge iconify-color  size-10"></view>
-        </view>
-      </view>
+    <view v-if="activeKey==='data'">
+      <WeightDashboard />
     </view>
     <view class="pb-[200rpx]" v-if="activeKey==='widget'">
       <view
@@ -406,9 +412,7 @@ onMounted(() => {
             class="relative z-[2] flex flex-1 flex-col items-center justify-center py-[12rpx] transition-opacity duration-150"
             hover-class="tab-hover"
             :data-tab-key="tab.key"
-            @touchstart="handleTabChange"
-            @touchend="handleTabTouchEnd"
-            @touchcancel="handleTabTouchEnd"
+            @tap="handleTabChange"
           >
             <!-- 图标与激活状态反馈 -->
 
@@ -495,7 +499,7 @@ onMounted(() => {
 
 /* 指示器备用动画 */
 .indicator-bg {
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* 反馈态 */
