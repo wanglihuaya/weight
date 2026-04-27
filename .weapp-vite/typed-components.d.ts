@@ -219,6 +219,20 @@ declare module 'weapp-vite/typed-components' {
       readonly theme?: 'info' | 'success' | 'warning' | 'error';
       readonly visible?: boolean;
     };
+    't-popup': {
+      readonly closeBtn?: boolean;
+      readonly closeOnOverlayClick?: boolean;
+      readonly content?: string;
+      readonly defaultVisible?: boolean;
+      readonly duration?: number;
+      readonly overlayProps?: OverlayProps;
+      readonly placement?: 'top' | 'left' | 'right' | 'bottom' | 'center';
+      readonly preventScrollThrough?: boolean;
+      readonly showOverlay?: boolean;
+      readonly usingCustomNavbar?: boolean;
+      readonly visible?: boolean;
+      readonly zIndex?: number;
+    };
     't-progress': {
       readonly color?: string | Array<string> | Record<string, string>;
       readonly label?: string | boolean;
@@ -447,6 +461,12 @@ declare module 'weapp-vite/typed-components' {
       readonly value?: number;
     };
     WeightDashboard: Record<string, any>;
+    WeightEntryRuler: {
+      readonly max?: number;
+      readonly min?: number;
+      readonly modelValue?: number;
+      readonly step?: number;
+    };
     WeightRuler: {
       readonly max?: number;
       readonly min?: number;

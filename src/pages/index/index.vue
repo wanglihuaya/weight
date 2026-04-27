@@ -6,6 +6,8 @@
 import WeightDashboard from '@/components/WeightDashboard/index.vue'
 import { getNavbarInfo } from '@/utils/navbar'
 import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'wevu'
+import DataPanel from './DataPanel.vue'
+import SettingsPanel from './SettingsPanel.vue'
 import { createTabSwitchContext, runTabSwitchAnimation } from './tabSwitch'
 import dataIconActive from '/tabbar/data-active.png'
 import dataIcon from '/tabbar/data.png'
@@ -353,38 +355,10 @@ onUnmounted(() => {
       </view>
     </view>
     <view class="pb-[200rpx]" v-if="activeKey==='weight'">
-      <view
-        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
-        :key="item"
-        class="mb-4"
-      >
-        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
-          <view class="i-mdi-calendar-multiselect size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-          <view class="mdi--calendar-multiselect iconify-color  size-10"></view>
-        </view>
-      </view>
+      <DataPanel />
     </view>
     <view class="pb-[200rpx]" v-if="activeKey==='settings'">
-      <view
-        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
-        :key="item"
-        class="mb-4"
-      >
-        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
-          <view class="i-mdi-cog size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-          <view class="mdi--cog iconify-color  size-10"></view>
-        </view>
-      </view>
+      <SettingsPanel />
     </view>
 
     <!-- ========================================== -->

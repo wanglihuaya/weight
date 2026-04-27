@@ -8,20 +8,23 @@ definePageJson({
   backgroundColor: '#f6f7fb',
 })
 
-const systemInfo = ref<WechatMiniprogram.SystemInfo | null>(null)
+const deviceInfo = ref<WechatMiniprogram.DeviceInfo | null>(null)
+const appBaseInfo = ref<WechatMiniprogram.AppBaseInfo | null>(null)
+const windowInfo = ref<WechatMiniprogram.WindowInfo | null>(null)
 
 const infoRows = computed(() => {
-  const info = systemInfo.value
+  const device = deviceInfo.value
+  const appBase = appBaseInfo.value
   return [
-    { label: '机型', value: info?.model ?? '--' },
-    { label: '系统', value: info ? `${info.system}` : '--' },
-    { label: '版本', value: info?.version ?? '--' },
-    { label: '基础库', value: info?.SDKVersion ?? '--' },
+    { label: '机型', value: device?.model ?? '--' },
+    { label: '系统', value: device?.system ?? '--' },
+    { label: '版本', value: appBase?.version ?? '--' },
+    { label: '基础库', value: appBase?.SDKVersion ?? '--' },
   ]
 })
 
 const layoutRows = computed(() => {
-  const info = systemInfo.value
+  const info = windowInfo.value
   if (!info) {
     return []
   }
@@ -33,11 +36,12 @@ const layoutRows = computed(() => {
 })
 
 function loadSystemInfo() {
-  wx.getSystemInfo({
-    success: (result) => {
-      systemInfo.value = result
-    },
-  })
+  const getDevice = wx.getDeviceInfo ? wx.getDeviceInfo() || wx.getSystemInfoSync() : wx.getSystemInfoSync()
+  const getAppBase = wx.getAppBaseInfo ? wx.getAppBaseInfo() || wx.getSystemInfoSync() : wx.getSystemInfoSync()
+  const getWindow = wx.getWindowInfo ? wx.getWindowInfo() || wx.getSystemInfoSync() : wx.getSystemInfoSync()
+  deviceInfo.value = getDevice
+  appBaseInfo.value = getAppBase
+  windowInfo.value = getWindow
 }
 
 onShow(() => {

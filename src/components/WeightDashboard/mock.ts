@@ -1,4 +1,6 @@
 export interface WeightMetricSummary {
+  startLabel: string
+  startWeight: number
   yesterdayWeight: number
   totalDays: number
   deltaFromStart: number
@@ -32,6 +34,7 @@ export interface WeightRecordItem {
   value: number
   delta: number
   dateText: string
+  note?: string
 }
 
 export interface WeightDashboardMock {
@@ -41,6 +44,7 @@ export interface WeightDashboardMock {
   todayEmptyText: string
   recentTitle: string
   recentRecord: WeightRecordItem
+  recentRecords: WeightRecordItem[]
   syncText: string
 }
 
@@ -61,11 +65,13 @@ function formatWeekday(date: Date) {
 export function buildWeightDashboardMock(now: Date): WeightDashboardMock {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const seed = now.getMonth() + 1 + now.getDate()
-  const startWeight = 67 + (seed % 5) * 0.2
+  const startWeight = roundTo(67 + (seed % 5) * 0.2)
   const currentWeight = roundTo(70.4 + Math.sin(seed / 4) * 0.5)
   const yesterdayWeight = roundTo(currentWeight + 0.2)
   const totalDays = 420 + seed * 3
   const deltaFromStart = roundTo(currentWeight - startWeight)
+  const startDate = new Date(today)
+  startDate.setMonth(startDate.getMonth() - 3)
 
   const chartDays = [28, 21, 14, 7, 0]
   const xPositions = [8, 28, 48, 68, 82]
@@ -104,9 +110,22 @@ export function buildWeightDashboardMock(now: Date): WeightDashboardMock {
 
   const lastRecordDate = new Date(today)
   lastRecordDate.setDate(lastRecordDate.getDate() - 1)
+  const recentRecords = new Array(3).fill(null).map((_, index) => {
+    const recordDate = new Date(today)
+    recordDate.setDate(recordDate.getDate() - (index + 1) * 2)
+    const value = roundTo(currentWeight + (index - 1) * 0.3)
+    return {
+      value,
+      delta: roundTo(value - currentWeight),
+      dateText: `${formatDateLabel(recordDate)} ${formatWeekday(recordDate)}`,
+      note: index === 0 ? '晚饭后记录' : index === 1 ? '晨起空腹' : '睡前复测',
+    }
+  })
 
   return {
     summary: {
+      startLabel: `${formatDateLabel(startDate)}`,
+      startWeight,
       yesterdayWeight,
       totalDays,
       deltaFromStart,
@@ -132,7 +151,9 @@ export function buildWeightDashboardMock(now: Date): WeightDashboardMock {
       value: yesterdayWeight,
       delta: roundTo(yesterdayWeight - currentWeight),
       dateText: `${formatDateLabel(lastRecordDate)} ${formatWeekday(lastRecordDate)}`,
+      note: '晚饭后记录',
     },
-    syncText: '数据未同步',
+    recentRecords,
+    syncText: `已于 ${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')} 同步`,
   }
 }

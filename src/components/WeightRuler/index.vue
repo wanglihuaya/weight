@@ -59,11 +59,11 @@ const initCanvas = () => {
       }
       canvas = res[0].node
       ctx = canvas.getContext('2d')
-      const systemInfo = wx.getSystemInfoSync()
-      dpr = systemInfo.pixelRatio
+      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() || wx.getSystemInfoSync() : wx.getSystemInfoSync()
+      dpr = windowInfo.pixelRatio
 
       // 确保宽度不为 0
-      width.value = res[0].width || systemInfo.windowWidth
+      width.value = res[0].width || windowInfo.windowWidth
       height.value = res[0].height || 120
 
       canvas.width = width.value * dpr

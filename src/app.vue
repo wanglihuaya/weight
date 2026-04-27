@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onHide, onLaunch, onShow } from 'wevu'
 
+import { ensureSilentLogin } from '@/services/auth'
+import { initCloudDevelopment } from '@/services/cloud'
+
 defineAppJson({
   pages: [
     'pages/index/index',
@@ -75,6 +78,10 @@ onHide(() => {
 
 onLaunch(() => {
   console.log('[weapp-vite-wevu-template] app launch')
+  initCloudDevelopment()
+  ensureSilentLogin().catch((error) => {
+    console.warn('静默登录失败', error)
+  })
 })
 </script>
 

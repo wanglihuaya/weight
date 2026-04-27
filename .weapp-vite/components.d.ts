@@ -45,6 +45,8 @@ declare module 'wevu' {
     't-input': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/input/input"), WeappComponent<ComponentProp<"t-input">>>;
     TNoticeBar: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>;
     't-notice-bar': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>;
+    TPopup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>;
+    't-popup': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>;
     TProgress: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>;
     't-progress': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>;
     TQrcode: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/qrcode/qrcode"), WeappComponent<ComponentProp<"t-qrcode">>>;
@@ -79,6 +81,7 @@ declare module 'wevu' {
     't-upload': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/upload/upload"), WeappComponent<ComponentProp<"t-upload">>>;
     TrendCard: typeof import("../src/components/TrendCard/index.vue")['default'];
     WeightDashboard: typeof import("../src/components/WeightDashboard/index.vue")['default'];
+    WeightEntryRuler: typeof import("../src/components/WeightDashboard/WeightEntryRuler.vue")['default'];
     WeightRuler: typeof import("../src/components/WeightRuler/index.vue")['default'];
   }
 }
@@ -105,6 +108,7 @@ declare global {
   const TIcon: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/icon/icon"), WeappComponent<ComponentProp<"t-icon">>>
   const TInput: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/input/input"), WeappComponent<ComponentProp<"t-input">>>
   const TNoticeBar: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>
+  const TPopup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>
   const TProgress: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>
   const TQrcode: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/qrcode/qrcode"), WeappComponent<ComponentProp<"t-qrcode">>>
   const TRadio: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/radio/radio"), WeappComponent<ComponentProp<"t-radio">>>
@@ -123,5 +127,6 @@ declare global {
   const TUpload: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/upload/upload"), WeappComponent<ComponentProp<"t-upload">>>
   const TrendCard: typeof import("../src/components/TrendCard/index.vue")['default']
   const WeightDashboard: typeof import("../src/components/WeightDashboard/index.vue")['default']
+  const WeightEntryRuler: typeof import("../src/components/WeightDashboard/WeightEntryRuler.vue")['default']
   const WeightRuler: typeof import("../src/components/WeightRuler/index.vue")['default']
 }
