@@ -1,10 +1,11 @@
 import { computed, ref } from 'wevu'
 
 import { ensureSilentLogin } from './auth'
-import { createWeightRecord, type CreateWeightRecordInput, listWeightRecords } from './weightApi'
-import { buildMonthlyRecordsView, buildWeightDashboardView, type CloudWeightRecord } from './weightModels'
+import { createWeightRecord, getWeightSummary, type CreateWeightRecordInput, listWeightRecords } from './weightApi'
+import { buildMonthlyRecordsView, buildWeightDashboardView, type CloudWeightRecord, type CloudWeightSummary } from './weightModels'
 
 export const cloudWeightRecords = ref<CloudWeightRecord[]>([])
+export const cloudWeightSummary = ref<CloudWeightSummary | null>(null)
 export const cloudWeightRecordsReady = ref(false)
 export const cloudWeightRecordsLoading = ref(false)
 export const cloudWeightRecordSaving = ref(false)
@@ -25,7 +26,7 @@ export const dashboardView = computed(() => {
   const referenceDate = cloudWeightLastSyncedAt.value
     ? new Date(cloudWeightLastSyncedAt.value)
     : new Date()
-  return buildWeightDashboardView(cloudWeightRecords.value, referenceDate)
+  return buildWeightDashboardView(cloudWeightRecords.value, referenceDate, cloudWeightSummary.value)
 })
 
 export function getMonthlyRecordsView(displayMonth: Date, referenceDate = new Date()) {
@@ -43,8 +44,12 @@ export async function refreshWeightRecords(force = false) {
 
     try {
       await ensureSilentLogin()
-      const records = await listWeightRecords({ limit: 400 })
+      const [records, summary] = await Promise.all([
+        listWeightRecords({ limit: 400 }),
+        getWeightSummary().catch(() => null),
+      ])
       cloudWeightRecords.value = records
+      cloudWeightSummary.value = summary
       cloudWeightRecordsReady.value = true
       cloudWeightLastSyncedAt.value = new Date().toISOString()
       return records

@@ -8,6 +8,7 @@ import { getNavbarInfo } from '@/utils/navbar'
 import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'wevu'
 import DataPanel from './DataPanel.vue'
 import SettingsPanel from './SettingsPanel.vue'
+import WidgetPanel from './WidgetPanel.vue'
 import { createTabSwitchContext, runTabSwitchAnimation } from './tabSwitch'
 import dataIconActive from '/tabbar/data-active.png'
 import dataIcon from '/tabbar/data.png'
@@ -69,6 +70,9 @@ const navbarTitle = computed(() => {
 })
 const scrollTop = ref(0)
 const useWorklet = ref(false)
+const navbarGlassFallbackClass = computed(() => (
+  !useWorklet.value && scrollTop.value > 8 ? 'navbar-glass--active' : ''
+))
 
 // ==========================================
 // Worklet 共享变量 (Animation Shared Values)
@@ -244,20 +248,14 @@ onMounted(() => {
         return { transform: `scale(${containerScale.value})` }
       })
 
-      // 导航栏背景模糊与透明度渐变
-      // 小程序限制: backdrop-filter 无法直接通过 Worklet 动画
-      // 解决方案: 使用多层叠加 + opacity 动画模拟渐变效果
-      pageInstance.applyAnimatedStyle('.navbar-bg', () => {
+      // 导航栏 Liquid Glass 随滚动显现
+      // blur 强度由静态分层负责，Worklet 仅驱动合成层 opacity，避免 UI 线程高频重算滤镜
+      pageInstance.applyAnimatedStyle('.navbar-glass', () => {
         'worklet'
-        // 计算滚动进度 (0 ~ 1)
-        const progress = Math.min(scrollY.value / 300, 1)
-        // 透明度从 0 渐变到 1
-        const opacity = progress
-        // 使用 CSS 变量传递模糊值 (仅部分小程序支持)
-        // 主层透明度 + mask-image 实现平滑边缘
+        const progress = Math.min(Math.max((scrollY.value - 6) / 72, 0), 1)
         return {
-          opacity,
-          // 小程序中 backdrop-filter 需要配合 mask-image 实现平滑过渡
+          opacity: progress,
+          transform: `translateY(${(1 - progress) * -4}px)`
         }
       })
 
@@ -285,24 +283,35 @@ onUnmounted(() => {
     class="w-full fixed top-0 left-0 z-50"
     :style="navbarHeightStyle"
   >
-    <!-- 背景模糊层 (Worklet 动画控制 opacity) -->
-    <view class="navbar-bg absolute inset-0 w-full h-full" />
+    <!-- iOS 26 风格 Liquid Glass：多层模糊 + 折射高光 + 底部渐隐 -->
+    <view
+      class="navbar-glass pointer-events-none absolute left-0 top-0 w-full"
+      :class="navbarGlassFallbackClass"
+    >
+      <view class="navbar-glass__soft absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__medium absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__strong absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__tint absolute left-0 top-0 w-full h-full" />
+      <view class="navbar-glass__highlight absolute left-0 top-0 w-full" />
+    </view>
 
     <!-- 内容层 -->
-    <view class="relative w-full h-full flex items-center justify-between">
+    <view class="navbar-content relative w-full h-full flex items-center justify-between">
       <!-- 左侧操作按钮 -->
       <view
-        class="navbar-left-btn -translate-y-2 shrink-0 grow-0 flex items-center justify-center p-1 shadow-sm bg-white/60 backdrop-blur-xs rounded-full hover:bg-white/80 transition-colors duration-150 ml-3"
+        class="navbar-left-btn shrink-0 grow-0 flex items-center justify-center rounded-full ml-3"
+        hover-class="navbar-left-btn--active"
+        :hover-stay-time="80"
         @touchstart="handleNavbarLeftTouchStart"
         @touchend="handleNavbarLeftTouchEnd"
         @touchcancel="handleNavbarLeftTouchEnd"
       >
-        <t-icon name="chevron-left" size="64rpx" data-name="chevron-left" />
+        <t-icon name="chevron-left" size="48rpx" color="#111827" data-name="chevron-left" />
       </view>
 
       <!-- 中心标题 (随滚动渐显) -->
       <view
-        class="navbar-title absolute w-full text-[#1c1c3c] text-lg font-semibold text-center pointer-events-none"
+        class="navbar-title absolute w-full text-center pointer-events-none"
         :style="navbarTitleStyle"
       >
         {{ navbarTitle }}
@@ -337,22 +346,8 @@ onUnmounted(() => {
     <view v-if="activeKey==='data'">
       <WeightDashboard />
     </view>
-    <view class="pb-[200rpx]" v-if="activeKey==='widget'">
-      <view
-        v-for="item in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]"
-        :key="item"
-        class="mb-4"
-      >
-        <view class="w-full rounded-[24rpx] bg-blue-100 backdrop-blur-md border border-white/60 p-4">
-          <view class="i-mdi-widgets size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-          <view class="mdi--widgets iconify-color  size-10"></view>
-        </view>
-      </view>
+    <view v-if="activeKey==='widget'" class="pb-[200rpx]">
+      <WidgetPanel />
     </view>
     <view class="pb-[200rpx]" v-if="activeKey==='weight'">
       <DataPanel />
@@ -411,64 +406,133 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* 导航栏背景模糊层 (Worklet 动画控制 opacity) */
-.navbar-bg {
-  /* 固定模糊值，通过 opacity 控制可见性 */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  /* 延长渐变遮罩，实现更平滑的边缘过渡 (70% -> 100%) */
-  mask-image: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 1) 70%,
-    rgba(0, 0, 0, 0.85) 78%,
-    rgba(0, 0, 0, 0.65) 85%,
-    rgba(0, 0, 0, 0.4) 90%,
-    rgba(0, 0, 0, 0.2) 95%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 1) 70%,
-    rgba(0, 0, 0, 0.85) 78%,
-    rgba(0, 0, 0, 0.65) 85%,
-    rgba(0, 0, 0, 0.4) 90%,
-    rgba(0, 0, 0, 0.2) 95%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  /* 初始状态：完全透明，通过 Worklet 渐变到 1 */
+/* iOS 26 inspired Liquid Glass
+ * Skyline 不支持 gradient mask，因此用三层不同高度/强度的 blur 形成连续渐隐。
+ */
+.navbar-glass {
+  height: calc(100% + 56rpx);
   opacity: 0;
-  /* 延长背景渐变，从 75% 开始变淡 */
-  /* background: white; */
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(255, 255, 255, 0.92) 60%,
-    rgba(255, 255, 255, 1) 100%,
-    transparent 100%
-  );
-  /* 硬件加速提示 */
-  transform: translateZ(0);
-  will-change: opacity;
+  transform: translateY(-4px);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 导航栏底部柔和阴影 (缓解割裂感) */
-.navbar-bg::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 180rpx;
+.navbar-glass--active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.navbar-glass__soft {
+  height: 100%;
+  backdrop-filter: blur(6px);
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.03) 0%,
-    rgba(0, 0, 0, 0.06) 30%,
-    rgba(0, 0, 0, 0.04) 60%,
-    transparent 100%
+    rgba(248, 251, 255, 0.32) 0%,
+    rgba(248, 251, 255, 0.22) 54%,
+    rgba(248, 251, 255, 0.08) 78%,
+    rgba(248, 251, 255, 0) 100%
+  );
+}
+
+.navbar-glass__medium {
+  height: 88%;
+  backdrop-filter: blur(14px);
+  background: linear-gradient(
+    to bottom,
+    rgba(250, 252, 255, 0.44) 0%,
+    rgba(250, 252, 255, 0.3) 62%,
+    rgba(250, 252, 255, 0.06) 100%
+  );
+}
+
+.navbar-glass__strong {
+  height: 74%;
+  backdrop-filter: blur(26px);
+  background: linear-gradient(
+    to bottom,
+    rgba(252, 253, 255, 0.68) 0%,
+    rgba(252, 253, 255, 0.5) 70%,
+    rgba(252, 253, 255, 0.12) 100%
+  );
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.42);
+}
+
+.navbar-glass__tint {
+  background-image:
+    linear-gradient(
+      112deg,
+      rgba(91, 196, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0) 42%
+    ),
+    linear-gradient(
+      248deg,
+      rgba(255, 184, 138, 0.09) 0%,
+      rgba(255, 255, 255, 0) 46%
+    );
+}
+
+.navbar-glass__highlight {
+  height: 2rpx;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.86) 48%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
+}
+
+.navbar-content {
+  z-index: 1;
+}
+
+.navbar-left-btn {
+  width: 72rpx;
+  height: 72rpx;
+  margin-top: -4rpx;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(18px);
+  border: 1rpx solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10rpx 30rpx rgba(31, 54, 86, 0.12),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1rpx 0 rgba(126, 152, 182, 0.16);
+  transition:
+    background-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.navbar-left-btn::before {
+  content: '';
+  position: absolute;
+  top: 2rpx;
+  left: 10rpx;
+  width: 48rpx;
+  height: 18rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0) 100%
   );
   pointer-events: none;
+}
+
+.navbar-left-btn--active {
+  background: rgba(235, 244, 252, 0.72);
+  box-shadow:
+    0 4rpx 14rpx rgba(31, 54, 86, 0.1),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
+}
+
+.navbar-title {
+  color: rgba(22, 28, 38, 0.92);
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.4rpx;
+  text-shadow: 0 1rpx 0 rgba(255, 255, 255, 0.72);
 }
 
 /* 指示器备用动画 */

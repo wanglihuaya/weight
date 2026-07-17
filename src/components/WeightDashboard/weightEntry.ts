@@ -25,6 +25,11 @@ export interface WeightEntryBoundState {
   atMax: boolean
 }
 
+export interface WeightEntryPayloadDetail {
+  current?: unknown
+  value?: unknown
+}
+
 export interface WeightEntryCanvasLayout {
   topPadding: number
   labelTop: number
@@ -66,6 +71,31 @@ export function getWeightEntryBoundState(current: number, min: number, max: numb
     atMin: current <= min + epsilon,
     atMax: current >= max - epsilon,
   }
+}
+
+function getFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+export function resolveWeightEntryPayloadValue(payload: unknown) {
+  const directValue = getFiniteNumber(payload)
+  if (directValue !== undefined) {
+    return directValue
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return undefined
+  }
+
+  const eventDetail = (payload as { detail?: unknown }).detail
+  const detailValue = getFiniteNumber(eventDetail)
+  if (detailValue !== undefined) {
+    return detailValue
+  }
+
+  const detail = eventDetail && typeof eventDetail === 'object' ? eventDetail as WeightEntryPayloadDetail : payload as WeightEntryPayloadDetail
+
+  return getFiniteNumber(detail.current) ?? getFiniteNumber(detail.value)
 }
 
 export function projectWeightEntryTarget(current: number, velocity: number, step: number, min: number, max: number) {

@@ -10,6 +10,7 @@ import {
   getWeightEntryBoundState,
   projectWeightEntryTarget,
   quantizeWeightEntryValue,
+  resolveWeightEntryPayloadValue,
   stepWeightEntrySpring,
 } from './weightEntry.ts'
 
@@ -79,6 +80,14 @@ test('getWeightEntryBoundState marks the active edge when the ruler reaches min 
     atMin: false,
     atMax: false,
   })
+})
+
+test('resolveWeightEntryPayloadValue reads the current value from ruler motion events', () => {
+  assert.equal(resolveWeightEntryPayloadValue(71.23), 71.23)
+  assert.equal(resolveWeightEntryPayloadValue({ detail: 71.4 }), 71.4)
+  assert.equal(resolveWeightEntryPayloadValue({ detail: { current: 72.4 } }), 72.4)
+  assert.equal(resolveWeightEntryPayloadValue({ detail: { value: 69.8 } }), 69.8)
+  assert.equal(resolveWeightEntryPayloadValue({ detail: { current: '72.4' } }), undefined)
 })
 
 test('buildWeightEntryCanvasLayout keeps tick labels inside the visible canvas height', () => {

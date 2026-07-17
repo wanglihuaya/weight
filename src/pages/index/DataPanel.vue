@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'wevu'
+import { computed, onMounted, ref, watch } from 'wevu'
 
-import { cloudWeightRecordsLoading, cloudWeightStoreError, getMonthlyRecordsView, refreshWeightRecords } from '@/services/weightStore'
+import { listWeightRecords } from '@/services/weightApi'
+import { buildMonthlyRecordsView } from '@/services/weightModels'
+import { cloudWeightStoreError, refreshWeightRecords } from '@/services/weightStore'
 
 defineComponentJson({
   virtualHost: true,
@@ -12,16 +14,26 @@ function getMonthStart(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1)
 }
 
-function getMonthKey(date: Date) {
+function getMonthKey(timestamp: number) {
+  const date = new Date(timestamp)
   return date.getFullYear() * 12 + date.getMonth()
 }
 
 const today = new Date()
-const currentMonth = getMonthStart(today)
-const visibleMonth = ref(getMonthStart(today))
+const currentMonthTimestamp = getMonthStart(today).getTime()
+const visibleMonthTimestamp = ref(currentMonthTimestamp)
+const monthRecordsLoading = ref(false)
+const monthRecordsError = ref('')
+const dataView = ref(buildMonthlyRecordsView([], visibleMonthTimestamp.value, today))
+let activeMonthRequestKey = ''
 
-const dataView = computed(() => getMonthlyRecordsView(visibleMonth.value, today))
-const canMoveNext = computed(() => getMonthKey(visibleMonth.value) < getMonthKey(currentMonth))
+const canMoveNext = computed(() => getMonthKey(visibleMonthTimestamp.value) < getMonthKey(currentMonthTimestamp))
+const monthStatCards = computed(() => [
+  { key: 'days', label: '记录天数', value: `${dataView.value.stats.recordedDays}`, unit: '天' },
+  { key: 'rate', label: '记录率', value: `${dataView.value.stats.completionRate}`, unit: '%' },
+  { key: 'low', label: '最低体重', value: dataView.value.stats.lowestWeightLabel, unit: '千克' },
+  { key: 'high', label: '最高体重', value: dataView.value.stats.highestWeightLabel, unit: '千克' },
+])
 
 onMounted(() => {
   refreshWeightRecords().catch(() => {
@@ -30,6 +42,7 @@ onMounted(() => {
       icon: 'none',
     })
   })
+  loadMonthData(visibleMonthTimestamp.value)
 })
 
 function shiftMonth(offset: number) {
@@ -37,9 +50,56 @@ function shiftMonth(offset: number) {
     return
   }
 
-  const nextMonth = new Date(visibleMonth.value)
+  const nextMonth = new Date(visibleMonthTimestamp.value)
   nextMonth.setMonth(nextMonth.getMonth() + offset)
-  visibleMonth.value = getMonthStart(nextMonth)
+  visibleMonthTimestamp.value = getMonthStart(nextMonth).getTime()
+}
+
+watch(visibleMonthTimestamp, (month) => {
+  loadMonthData(month)
+})
+
+function serializeRecordDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+async function loadMonthData(month: number) {
+  const monthStart = getMonthStart(new Date(month))
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+  const requestKey = `${monthStart.getFullYear()}-${monthStart.getMonth() + 1}`
+  activeMonthRequestKey = requestKey
+  monthRecordsLoading.value = true
+  monthRecordsError.value = ''
+
+  try {
+    const records = await listWeightRecords({
+      startDate: serializeRecordDate(monthStart),
+      endDate: serializeRecordDate(monthEnd),
+      limit: 200,
+    })
+
+    if (activeMonthRequestKey !== requestKey) {
+      return
+    }
+
+    dataView.value = buildMonthlyRecordsView(records, monthStart, today)
+  }
+  catch (error) {
+    if (activeMonthRequestKey !== requestKey) {
+      return
+    }
+
+    monthRecordsError.value = error instanceof Error ? error.message : '月数据同步失败'
+    dataView.value = buildMonthlyRecordsView([], monthStart, today)
+  }
+  finally {
+    if (activeMonthRequestKey === requestKey) {
+      monthRecordsLoading.value = false
+    }
+  }
 }
 </script>
 
@@ -66,8 +126,8 @@ function shiftMonth(offset: number) {
       </view>
 
       <view class="mt-[12rpx] flex items-center justify-between text-[22rpx] text-[#9ca0ab]">
-        <text>{{ cloudWeightRecordsLoading ? '云端同步中…' : '按日期查看体重记录' }}</text>
-        <text v-if="cloudWeightStoreError">{{ cloudWeightStoreError }}</text>
+        <text>{{ monthRecordsLoading ? '按月份同步云端记录…' : '按日期查看体重记录' }}</text>
+        <text v-if="monthRecordsError || cloudWeightStoreError">{{ monthRecordsError || cloudWeightStoreError }}</text>
       </view>
 
       <view class="mt-[32rpx] grid grid-cols-7 gap-y-[18rpx] text-center">
@@ -111,6 +171,19 @@ function shiftMonth(offset: number) {
             </view>
           </view>
         </view>
+        <view class="mt-[10rpx] grid grid-cols-2 gap-[14rpx] pb-[10rpx]">
+          <view
+            v-for="card in monthStatCards"
+            :key="card.key"
+            class="month-stat-card"
+          >
+            <text class="month-stat-label">{{ card.label }}</text>
+            <view class="month-stat-value">
+              {{ card.value }}
+              <text v-if="card.value !== '--'" class="month-stat-unit">{{ card.unit }}</text>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
 
@@ -124,6 +197,24 @@ function shiftMonth(offset: number) {
           <text class="ml-[18rpx] text-[28rpx] text-[#8f919c]">
             {{ group.summaryText }}
           </text>
+        </view>
+        <view v-if="group.hasRecords" class="mt-[20rpx] grid grid-cols-2 gap-[14rpx]">
+          <view class="week-stat-chip">
+            <text class="week-stat-label">最新</text>
+            <text class="week-stat-value">{{ group.latestWeightLabel }} 千克</text>
+          </view>
+          <view class="week-stat-chip">
+            <text class="week-stat-label">变化</text>
+            <text class="week-stat-value">{{ group.deltaLabel }} 千克</text>
+          </view>
+          <view class="week-stat-chip">
+            <text class="week-stat-label">均重</text>
+            <text class="week-stat-value">{{ group.averageWeightLabel }} 千克</text>
+          </view>
+          <view class="week-stat-chip">
+            <text class="week-stat-label">区间</text>
+            <text class="week-stat-value">{{ group.rangeLabel }} 千克</text>
+          </view>
         </view>
       </view>
     </view>
@@ -187,5 +278,55 @@ function shiftMonth(offset: number) {
   transform: translateX(-50%);
   border-radius: 999rpx;
   background: #ffffff;
+}
+
+.month-stat-card {
+  border-radius: 22rpx;
+  background: #f5f7fb;
+  padding: 18rpx 20rpx;
+}
+
+.month-stat-label {
+  display: block;
+  color: #8d919c;
+  font-size: 22rpx;
+  line-height: 1.2;
+}
+
+.month-stat-value {
+  margin-top: 12rpx;
+  color: #16171d;
+  font-size: 30rpx;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.month-stat-unit {
+  margin-left: 6rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #7a7f8a;
+}
+
+.week-stat-chip {
+  border-radius: 20rpx;
+  background: #f7f8fb;
+  padding: 18rpx 20rpx;
+}
+
+.week-stat-label {
+  display: block;
+  color: #90939d;
+  font-size: 22rpx;
+  line-height: 1.2;
+}
+
+.week-stat-value {
+  display: block;
+  margin-top: 10rpx;
+  color: #18191f;
+  font-size: 24rpx;
+  line-height: 1.25;
+  font-weight: 600;
 }
 </style>

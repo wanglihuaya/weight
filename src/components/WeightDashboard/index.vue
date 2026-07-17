@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'wevu'
 import WeightRuler from '@/components/WeightRuler/index.vue'
 import { cloudWeightRecordSaving, cloudWeightRecordsLoading, cloudWeightStoreError, dashboardView, refreshWeightRecords, saveWeightRecord } from '@/services/weightStore'
 
-import { buildWeightEntryModes, buildWeightEntryReadoutMotion } from './weightEntry'
+import { buildWeightEntryModes, buildWeightEntryReadoutMotion, resolveWeightEntryPayloadValue } from './weightEntry'
 import WeightEntryRuler from './WeightEntryRuler.vue'
 
 const ENTRY_WEIGHT_MIN = 30
@@ -177,15 +177,21 @@ function handleEntryPopupVisibleChange(e: WechatMiniprogram.CustomEvent<{ visibl
   }
 }
 
-function handleEntryRulerMotion(e: WechatMiniprogram.CustomEvent<{ offset?: number, atMin?: boolean, atMax?: boolean }>) {
+function handleEntryRulerMotion(e: WechatMiniprogram.CustomEvent<{ offset?: number, atMin?: boolean, atMax?: boolean, dragging?: boolean }>) {
   entryMotionOffset.value = e.detail?.offset ?? 0
   entryAtMin.value = !!e.detail?.atMin
   entryAtMax.value = !!e.detail?.atMax
+  const nextWeight = resolveWeightEntryPayloadValue(e)
+  if (e.detail?.dragging && nextWeight !== undefined) {
+    draftWeight.value = Number(nextWeight.toFixed(1))
+  }
 }
 
-function onDraftWeightChange(val: number) {
-  draftWeight.value = val
-  console.log('Draft weight changed:', val)
+function onDraftWeightChange(payload: unknown) {
+  const nextWeight = resolveWeightEntryPayloadValue(payload)
+  if (nextWeight !== undefined) {
+    draftWeight.value = Number(nextWeight.toFixed(1))
+  }
 }
 </script>
 
@@ -242,7 +248,7 @@ function onDraftWeightChange(val: number) {
           </view>
         </view>
 
-        <view class="metric-col metric-col-center">
+        <view class="metric-col pl-3">
           <text class="metric-label">本周</text>
           <view class="week-dots">
             <view
@@ -256,21 +262,57 @@ function onDraftWeightChange(val: number) {
 
         <view class="metric-col">
           <text class="metric-label">BMI</text>
-          <view class="bmi-value">{{ hasRecords ? summary.bmiValue.toFixed(1) : '--' }}</view>
-          <view class="bmi-track-wrap">
-            <view class="bmi-track">
-              <view
-                v-for="(color, index) in bmiSegmentColors"
-                :key="index"
-                class="bmi-segment"
-                :style="`background:${color};`"
-              />
+          <view class="flex items-center w-full gap-1">
+            <view class="bmi-value">{{ hasRecords ? summary.bmiValue.toFixed(1) : '--' }}</view>
+            <view class="bmi-track-wrap flex-1">
+              <view class="bmi-track">
+                <view
+                  v-for="(color, index) in bmiSegmentColors"
+                  :key="index"
+                  class="bmi-segment"
+                  :style="`background:${color};`"
+                />
+              </view>
+              <view class="bmi-marker" :style="markerStyle(bmiMarkerPercent)" />
             </view>
-            <view class="bmi-marker" :style="markerStyle(bmiMarkerPercent)" />
           </view>
         </view>
       </view>
     </view>
+
+    <!-- <view class="section-block">
+      <view class="section-head">
+        <text class="section-title">趋势概览</text>
+      </view>
+
+      <view class="stats-grid">
+        <view
+          v-for="card in statCards"
+          :key="card.key"
+          class="stat-card"
+          :class="`stat-card-${card.tone}`"
+        >
+          <text class="stat-card-label">{{ card.label }}</text>
+          <view class="stat-card-value">
+            {{ card.value }}
+            <text v-if="card.value !== '--'" class="stat-card-unit">{{ card.unit }}</text>
+          </view>
+          <text class="stat-card-hint">{{ card.hint }}</text>
+        </view>
+      </view>
+
+      <view class="panel-card insight-card">
+        <view
+          v-for="(row, index) in insightRows"
+          :key="row.key"
+          class="insight-row"
+          :class="index !== insightRows.length - 1 ? 'insight-row-divider' : ''"
+        >
+          <text class="insight-label">{{ row.label }}</text>
+          <text class="insight-value">{{ row.value }}</text>
+        </view>
+      </view>
+    </view> -->
 
     <view class="section-block">
       <view class="section-head">
@@ -432,11 +474,11 @@ function onDraftWeightChange(val: number) {
 
           <view class="entry-ruler-wrap">
             <WeightEntryRuler
-              :model-value="draftWeight"
+              v-model="draftWeight"
               :min="ENTRY_WEIGHT_MIN"
               :max="ENTRY_WEIGHT_MAX"
               :step="ENTRY_WEIGHT_STEP"
-              @update:modelValue="onDraftWeightChange"
+              @change="onDraftWeightChange"
               @motion="handleEntryRulerMotion"
             />
           </view>
@@ -570,10 +612,6 @@ function onDraftWeightChange(val: number) {
   min-width: 0;
 }
 
-.metric-col-center {
-  padding: 0 8rpx;
-}
-
 .metric-label {
   display: block;
   font-size: 26rpx;
@@ -629,9 +667,9 @@ function onDraftWeightChange(val: number) {
 }
 
 .week-dot {
-  height: 18rpx;
-  width: 18rpx;
-  border-radius: 9999rpx;
+  height: 14rpx;
+  width: 14rpx;
+  border-radius: 100%;
   background: #d0d0d4;
 }
 
@@ -641,9 +679,9 @@ function onDraftWeightChange(val: number) {
 
 .bmi-value {
   margin-top: 10rpx;
-  font-size: 28rpx;
+  font-size: 24rpx;
   line-height: 1;
-  font-weight: 700;
+  font-weight: 500;
   color: #1c1c21;
 }
 
@@ -660,7 +698,7 @@ function onDraftWeightChange(val: number) {
 }
 
 .bmi-segment {
-  height: 18rpx;
+  height: 16rpx;
   flex: 1;
   border-radius: 6rpx;
 }
@@ -697,6 +735,97 @@ function onDraftWeightChange(val: number) {
   display: flex;
   align-items: center;
   gap: 14rpx;
+}
+
+.stats-grid {
+  margin-top: 16rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.stat-card {
+  border-radius: 30rpx;
+  padding: 22rpx 22rpx 20rpx;
+  box-shadow: 0 14rpx 32rpx rgba(17, 17, 21, 0.05);
+}
+
+.stat-card-sky {
+  background: linear-gradient(180deg, #eef7ff 0%, #ffffff 100%);
+}
+
+.stat-card-violet {
+  background: linear-gradient(180deg, #f3efff 0%, #ffffff 100%);
+}
+
+.stat-card-amber {
+  background: linear-gradient(180deg, #fff6e9 0%, #ffffff 100%);
+}
+
+.stat-card-graphite {
+  background: linear-gradient(180deg, #f3f4f7 0%, #ffffff 100%);
+}
+
+.stat-card-label {
+  display: block;
+  color: #8d909c;
+  font-size: 24rpx;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.stat-card-value {
+  margin-top: 16rpx;
+  color: #15161c;
+  font-size: 44rpx;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.stat-card-unit {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.stat-card-hint {
+  display: block;
+  margin-top: 14rpx;
+  color: #a0a3ad;
+  font-size: 20rpx;
+  line-height: 1.35;
+}
+
+.insight-card {
+  margin-top: 16rpx;
+  overflow: hidden;
+}
+
+.insight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 24rpx 28rpx;
+}
+
+.insight-row-divider {
+  border-bottom: 1px solid #ececf1;
+}
+
+.insight-label {
+  color: #868993;
+  font-size: 26rpx;
+  line-height: 1.2;
+}
+
+.insight-value {
+  color: #17181d;
+  font-size: 28rpx;
+  line-height: 1.2;
+  font-weight: 600;
+  text-align: right;
 }
 
 .range-pill {

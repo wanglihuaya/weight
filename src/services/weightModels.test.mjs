@@ -49,17 +49,59 @@ test('buildWeightDashboardView derives the home page summary from cloud records'
   assert.deepEqual(view.chart.xLabels, ['3月30日', '4月6日', '4月13日', '4月21日'])
 })
 
+test('buildWeightDashboardView exposes richer stats for the weight tab overview', () => {
+  const streakRecords = [
+    { _id: 'a1', weight: 69.9, recordDate: '2026-04-02', recordedAt: '2026-04-02T07:30:00.000Z', mode: 'now' },
+    { _id: 'a2', weight: 70.4, recordDate: '2026-04-20', recordedAt: '2026-04-20T07:30:00.000Z', mode: 'now' },
+    { _id: 'a3', weight: 70.8, recordDate: '2026-04-21', recordedAt: '2026-04-21T07:30:00.000Z', mode: 'now' },
+    { _id: 'a4', weight: 71.0, recordDate: '2026-04-24', recordedAt: '2026-04-24T07:30:00.000Z', mode: 'now' },
+    { _id: 'a5', weight: 70.9, recordDate: '2026-04-25', recordedAt: '2026-04-25T07:30:00.000Z', mode: 'now' },
+    { _id: 'a6', weight: 71.3, recordDate: '2026-04-26', recordedAt: '2026-04-26T07:30:00.000Z', mode: 'photo' },
+  ]
+  const view = buildWeightDashboardView(streakRecords, new Date('2026-04-26T20:00:00+08:00'))
+
+  assert.equal(view.stats.streakDays, 3)
+  assert.equal(view.stats.weeklyDelta, 0.9)
+  assert.equal(view.stats.monthlyAverage, 70.7)
+  assert.equal(view.stats.monthlyRecordedDays, 6)
+  assert.equal(view.stats.monthlyCompletionRate, 23)
+  assert.equal(view.stats.recentLow, 69.9)
+  assert.equal(view.stats.recentHigh, 71.3)
+  assert.equal(view.stats.totalRecordedDays, 6)
+})
+
 test('buildMonthlyRecordsView builds the calendar and weekly summaries from records', () => {
   const view = buildMonthlyRecordsView(sampleRecords, new Date('2026-04-01T00:00:00+08:00'), new Date('2026-04-26T20:00:00+08:00'))
 
   assert.equal(view.monthLabel, '2026年4月')
   assert.equal(view.monthAverageLabel, '70.8')
   assert.equal(view.weightChangeLabel, '1.1')
+  assert.equal(view.stats.recordedDays, 5)
+  assert.equal(view.stats.completionRate, 19)
+  assert.equal(view.stats.lowestWeightLabel, '70.2')
+  assert.equal(view.stats.highestWeightLabel, '71.3')
   assert.equal(view.days[22].label, '21')
   assert.equal(view.days[22].isRecorded, true)
   assert.equal(view.days[27].label, '26')
   assert.equal(view.days[27].isRecorded, true)
   assert.equal(view.days[27].isToday, true)
   assert.equal(view.weekGroups[3]?.summaryText, '3次记录 · 均重71.0千克')
+  assert.equal(view.weekGroups[1]?.recordCount, 1)
+  assert.equal(view.weekGroups[1]?.averageWeightLabel, '70.2')
+  assert.equal(view.weekGroups[1]?.rangeLabel, '70.2 - 70.2')
+  assert.equal(view.weekGroups[3]?.latestWeightLabel, '71.3')
+  assert.equal(view.weekGroups[3]?.deltaLabel, '+0.5')
   assert.equal(view.weekGroups[4]?.summaryText, '无')
+})
+
+test('buildMonthlyRecordsView accepts a timestamp month source from reactive state', () => {
+  const monthTimestamp = new Date('2026-04-01T00:00:00+08:00').getTime()
+  const view = buildMonthlyRecordsView(
+    sampleRecords,
+    monthTimestamp,
+    new Date('2026-04-26T20:00:00+08:00'),
+  )
+
+  assert.equal(view.monthLabel, '2026年4月')
+  assert.equal(view.days[27].label, '26')
 })

@@ -1,6 +1,6 @@
 import { ensureSilentLogin } from './auth'
 import { callCloudFunction } from './cloud'
-import { type CloudWeightRecord, type WeightEntryModeKey, serializeRecordDate } from './weightModels'
+import { type CloudWeightRecord, type CloudWeightSummary, type WeightEntryModeKey, serializeRecordDate } from './weightModels'
 
 export interface CreateWeightRecordInput {
   weight: number
@@ -34,6 +34,15 @@ export async function listWeightRecords(params?: {
   })
 
   return (result.records ?? []).map(normalizeWeightRecord)
+}
+
+export async function getWeightSummary() {
+  await ensureSilentLogin()
+  const result = await callCloudFunction<{ summary?: CloudWeightSummary }>('weight-records', {
+    action: 'summary',
+  })
+
+  return result.summary ?? null
 }
 
 export async function createWeightRecord(input: CreateWeightRecordInput) {

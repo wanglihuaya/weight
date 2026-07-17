@@ -36,6 +36,7 @@ export interface WeightDashboardChartPoint {
 export interface WeightDashboardView {
   hasRecords: boolean
   summary: WeightDashboardSummary
+  stats: WeightDashboardStats
   chart: {
     rangeLabel: string
     yTicks: number[]
@@ -48,6 +49,18 @@ export interface WeightDashboardView {
   recentTitle: string
   recentRecords: WeightTimelineRecord[]
   syncText: string
+}
+
+export interface WeightDashboardStats {
+  streakDays: number
+  weeklyDelta: number
+  monthlyAverage: number
+  monthlyDelta: number
+  monthlyRecordedDays: number
+  monthlyCompletionRate: number
+  recentLow: number
+  recentHigh: number
+  totalRecordedDays: number
 }
 
 export interface WeightTimelineRecord {
@@ -69,6 +82,12 @@ export interface WeekGroup {
   key: string
   label: string
   summaryText: string
+  recordCount: number
+  averageWeightLabel: string
+  latestWeightLabel: string
+  deltaLabel: string
+  rangeLabel: string
+  hasRecords: boolean
 }
 
 export interface MonthlyRecordsView {
@@ -78,7 +97,19 @@ export interface MonthlyRecordsView {
   monthAverageLabel: string
   weightChangeLabel: string
   unitLabel: string
+  stats: MonthlyRecordsStats
   weekGroups: WeekGroup[]
+}
+
+export interface MonthlyRecordsStats {
+  recordedDays: number
+  completionRate: number
+  lowestWeightLabel: string
+  highestWeightLabel: string
+}
+
+export interface CloudWeightSummary extends WeightDashboardStats {
+  latestRecordedAt?: string
 }
 
 const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -94,12 +125,22 @@ function parseDateKey(value: string) {
   return new Date(year, month - 1, day)
 }
 
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+function normalizeInputDate(input: Date | number | string) {
+  if (typeof input === 'number' || typeof input === 'string') {
+    return new Date(input)
+  }
+
+  return input
 }
 
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
+function startOfDay(date: Date | number | string) {
+  const safeDate = normalizeInputDate(date)
+  return new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate())
+}
+
+function startOfMonth(date: Date | number | string) {
+  const safeDate = normalizeInputDate(date)
+  return new Date(safeDate.getFullYear(), safeDate.getMonth(), 1)
 }
 
 function mondayIndex(day: number) {
@@ -116,7 +157,7 @@ function formatWeekday(value: string) {
   return weekdays[parseDateKey(value).getDay()]
 }
 
-function diffDaysInclusive(startKey: string, endDate: Date) {
+function diffDaysInclusive(startKey: string, endDate: Date | number | string) {
   const start = startOfDay(parseDateKey(startKey)).getTime()
   const end = startOfDay(endDate).getTime()
   return Math.max(1, Math.floor((end - start) / 86400000) + 1)
@@ -206,11 +247,11 @@ function summarizeRecord(record: CloudWeightRecord, previous?: CloudWeightRecord
   }
 }
 
-function getTodayKey(referenceDate: Date) {
+function getTodayKey(referenceDate: Date | number | string) {
   return serializeRecordDate(referenceDate)
 }
 
-function getCurrentWeekKeys(referenceDate: Date) {
+function getCurrentWeekKeys(referenceDate: Date | number | string) {
   const today = startOfDay(referenceDate)
   const mondayOffset = mondayIndex(today.getDay())
   const monday = new Date(today)
@@ -223,9 +264,28 @@ function getCurrentWeekKeys(referenceDate: Date) {
   })
 }
 
-function formatSyncText(referenceDate: Date) {
-  const hours = referenceDate.getHours().toString().padStart(2, '0')
-  const minutes = referenceDate.getMinutes().toString().padStart(2, '0')
+function getLastNDaysStartKey(referenceDate: Date | number | string, days: number) {
+  const safeDate = normalizeInputDate(referenceDate)
+  const date = new Date(safeDate)
+  date.setDate(safeDate.getDate() - (days - 1))
+  return serializeRecordDate(date)
+}
+
+function getCurrentMonthBounds(referenceDate: Date | number | string) {
+  const monthStart = startOfMonth(referenceDate)
+  const monthStartKey = serializeRecordDate(monthStart)
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+  return {
+    monthStart,
+    monthStartKey,
+    monthEndKey: serializeRecordDate(monthEnd),
+  }
+}
+
+function formatSyncText(referenceDate: Date | number | string) {
+  const safeDate = normalizeInputDate(referenceDate)
+  const hours = safeDate.getHours().toString().padStart(2, '0')
+  const minutes = safeDate.getMinutes().toString().padStart(2, '0')
   return `已于 ${hours}:${minutes} 同步`
 }
 
@@ -237,10 +297,108 @@ function formatWeightLabel(value: number) {
   return normalizeWeight(value).toFixed(1)
 }
 
-export function serializeRecordDate(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
+function formatSignedWeightLabel(value: number) {
+  const normalized = normalizeWeight(value)
+  if (normalized > 0) {
+    return `+${normalized.toFixed(1)}`
+  }
+  if (normalized < 0) {
+    return normalized.toFixed(1)
+  }
+  return '0.0'
+}
+
+function resolveMonthlyCompletionDenominator(referenceDate: Date | number | string) {
+  const safeDate = normalizeInputDate(referenceDate)
+  const monthEnd = new Date(safeDate.getFullYear(), safeDate.getMonth() + 1, 0).getDate()
+  return Math.min(safeDate.getDate(), monthEnd)
+}
+
+function resolveDisplayedMonthCompletionDenominator(displayMonth: Date | number | string, referenceDate: Date | number | string) {
+  const safeDisplayMonth = normalizeInputDate(displayMonth)
+  const safeReferenceDate = normalizeInputDate(referenceDate)
+  const totalDays = new Date(safeDisplayMonth.getFullYear(), safeDisplayMonth.getMonth() + 1, 0).getDate()
+  if (
+    safeDisplayMonth.getFullYear() === safeReferenceDate.getFullYear()
+    && safeDisplayMonth.getMonth() === safeReferenceDate.getMonth()
+  ) {
+    return Math.min(safeReferenceDate.getDate(), totalDays)
+  }
+
+  return totalDays
+}
+
+function buildDashboardStats(records: CloudWeightRecord[], referenceDate: Date | number | string): WeightDashboardStats {
+  if (records.length === 0) {
+    return {
+      streakDays: 0,
+      weeklyDelta: 0,
+      monthlyAverage: 0,
+      monthlyDelta: 0,
+      monthlyRecordedDays: 0,
+      monthlyCompletionRate: 0,
+      recentLow: 0,
+      recentHigh: 0,
+      totalRecordedDays: 0,
+    }
+  }
+
+  const recordSet = new Set(records.map(record => record.recordDate))
+  const today = startOfDay(referenceDate)
+  let streakDays = 0
+
+  for (let offset = 0; offset < records.length; offset += 1) {
+    const cursor = new Date(today)
+    cursor.setDate(today.getDate() - offset)
+    const dateKey = serializeRecordDate(cursor)
+    if (!recordSet.has(dateKey)) {
+      break
+    }
+    streakDays += 1
+  }
+
+  const last7StartKey = getLastNDaysStartKey(referenceDate, 7)
+  const weeklyRecords = records.filter(record => record.recordDate >= last7StartKey)
+  const weeklyDelta = weeklyRecords.length > 1
+    ? roundTo(weeklyRecords.at(-1)!.weight - weeklyRecords[0].weight)
+    : 0
+
+  const { monthStartKey } = getCurrentMonthBounds(referenceDate)
+  const monthlyRecords = records.filter(record => record.recordDate >= monthStartKey)
+  const monthlyAverage = monthlyRecords.length > 0
+    ? roundTo(monthlyRecords.reduce((sum, record) => sum + record.weight, 0) / monthlyRecords.length)
+    : 0
+  const monthlyDelta = monthlyRecords.length > 1
+    ? roundTo(monthlyRecords.at(-1)!.weight - monthlyRecords[0].weight)
+    : 0
+  const monthlyRecordedDays = monthlyRecords.length
+  const monthlyCompletionRate = monthlyRecordedDays > 0
+    ? Math.round((monthlyRecordedDays / resolveMonthlyCompletionDenominator(referenceDate)) * 100)
+    : 0
+
+  const last30StartKey = getLastNDaysStartKey(referenceDate, 30)
+  const recent30Records = records.filter(record => record.recordDate >= last30StartKey)
+  const recentLow = recent30Records.length > 0 ? normalizeWeight(Math.min(...recent30Records.map(record => record.weight))) : 0
+  const recentHigh = recent30Records.length > 0 ? normalizeWeight(Math.max(...recent30Records.map(record => record.weight))) : 0
+
+  return {
+    streakDays,
+    weeklyDelta,
+    monthlyAverage,
+    monthlyDelta,
+    monthlyRecordedDays,
+    monthlyCompletionRate,
+    recentLow,
+    recentHigh,
+    totalRecordedDays: records.length,
+  }
+}
+
+export function serializeRecordDate(date: Date | number | string) {
+  const safeDate = normalizeInputDate(date)
+  const year = safeDate.getFullYear()
+  const month = String(safeDate.getMonth() + 1).padStart(2, '0')
+  const day = String(safeDate.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
@@ -264,10 +422,17 @@ export function groupLatestDailyRecords(records: CloudWeightRecord[]) {
   return sortByRecordedAtAsc([...latestByDay.values()])
 }
 
-export function buildWeightDashboardView(records: CloudWeightRecord[], referenceDate = new Date()): WeightDashboardView {
+export function buildWeightDashboardView(
+  records: CloudWeightRecord[],
+  referenceDate: Date | number | string = new Date(),
+  cloudSummary?: CloudWeightSummary | null,
+): WeightDashboardView {
+  const safeReferenceDate = normalizeInputDate(referenceDate)
   const latestDailyRecords = groupLatestDailyRecords(records)
   const sortedAsc = sortByRecordedAtAsc(latestDailyRecords)
   const sortedDesc = [...sortedAsc].reverse()
+  const fallbackStats = buildDashboardStats(sortedAsc, referenceDate)
+  const stats = cloudSummary ?? fallbackStats
 
   if (sortedAsc.length === 0) {
     return {
@@ -286,6 +451,7 @@ export function buildWeightDashboardView(records: CloudWeightRecord[], reference
         bmiValue: 0,
         bmiMarkerIndex: 0,
       },
+      stats,
       chart: {
         rangeLabel: '1个月',
         yTicks: [0, 0, 0],
@@ -305,11 +471,11 @@ export function buildWeightDashboardView(records: CloudWeightRecord[], reference
   const currentRecord = sortedAsc.at(-1)!
   const todayKey = getTodayKey(referenceDate)
   const currentWeekKeys = getCurrentWeekKeys(referenceDate)
-  const chartStartDate = new Date(referenceDate)
-  chartStartDate.setDate(referenceDate.getDate() - 27)
+  const chartStartDate = new Date(safeReferenceDate)
+  chartStartDate.setDate(safeReferenceDate.getDate() - 27)
   const chartStartKey = serializeRecordDate(chartStartDate)
-  const chartEndDate = new Date(referenceDate)
-  chartEndDate.setDate(referenceDate.getDate() - 1)
+  const chartEndDate = new Date(safeReferenceDate)
+  chartEndDate.setDate(safeReferenceDate.getDate() - 1)
   const chartEndKey = serializeRecordDate(chartEndDate)
   const chartSource = sortedAsc.filter(record => record.recordDate >= chartStartKey && record.recordDate <= chartEndKey).slice(-5)
   const chart = buildChartPoints(chartSource)
@@ -343,6 +509,7 @@ export function buildWeightDashboardView(records: CloudWeightRecord[], reference
       bmiValue,
       bmiMarkerIndex,
     },
+    stats,
     chart: {
       rangeLabel: '1个月',
       yTicks: chart.yTicks,
@@ -358,7 +525,11 @@ export function buildWeightDashboardView(records: CloudWeightRecord[], reference
   }
 }
 
-export function buildMonthlyRecordsView(records: CloudWeightRecord[], displayMonth: Date, referenceDate = new Date()): MonthlyRecordsView {
+export function buildMonthlyRecordsView(
+  records: CloudWeightRecord[],
+  displayMonth: Date | number | string,
+  referenceDate: Date | number | string = new Date(),
+): MonthlyRecordsView {
   const monthStart = startOfMonth(displayMonth)
   const today = startOfDay(referenceDate)
   const totalDays = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate()
@@ -367,7 +538,6 @@ export function buildMonthlyRecordsView(records: CloudWeightRecord[], displayMon
   const monthPrefix = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-`
   const monthlyRecords = latestDailyRecords.filter(record => record.recordDate.startsWith(monthPrefix))
   const recordSet = new Set(monthlyRecords.map(record => record.recordDate))
-  const recordByDate = new Map(monthlyRecords.map(record => [record.recordDate, record]))
   const days: MonthDayCell[] = []
 
   for (let index = 0; index < leadingPlaceholders; index += 1) {
@@ -425,11 +595,28 @@ export function buildMonthlyRecordsView(records: CloudWeightRecord[], displayMon
       const average = weeklyRecords.length > 0
         ? `${formatWeightLabel(weeklyRecords.reduce((sum, record) => sum + record.weight, 0) / weeklyRecords.length)}千克`
         : ''
+      const latestWeightLabel = weeklyRecords.length > 0
+        ? formatWeightLabel(weeklyRecords.at(-1)!.weight)
+        : '--'
+      const deltaLabel = weeklyRecords.length > 1
+        ? formatSignedWeightLabel(weeklyRecords.at(-1)!.weight - weeklyRecords[0].weight)
+        : weeklyRecords.length === 1
+          ? '0.0'
+          : '--'
+      const rangeLabel = weeklyRecords.length > 0
+        ? `${formatWeightLabel(Math.min(...weeklyRecords.map(record => record.weight)))} - ${formatWeightLabel(Math.max(...weeklyRecords.map(record => record.weight)))}`
+        : '--'
 
       return {
         key: `week-${index + 1}`,
         label: `${monthStart.getMonth() + 1}月${startDay}日至${endDay}日`,
         summaryText: weeklyRecords.length > 0 ? `${weeklyRecords.length}次记录 · 均重${average}` : '无',
+        recordCount: weeklyRecords.length,
+        averageWeightLabel: weeklyRecords.length > 0 ? formatWeightLabel(weeklyRecords.reduce((sum, record) => sum + record.weight, 0) / weeklyRecords.length) : '--',
+        latestWeightLabel,
+        deltaLabel,
+        rangeLabel,
+        hasRecords: weeklyRecords.length > 0,
       }
     })
     .filter((group): group is WeekGroup => group !== null)
@@ -440,8 +627,13 @@ export function buildMonthlyRecordsView(records: CloudWeightRecord[], displayMon
   const weightChangeLabel = monthlyRecords.length > 0
     ? formatWeightLabel(monthlyRecords.at(-1)!.weight - monthlyRecords[0].weight)
     : '--'
-
-  void recordByDate
+  const completionBase = resolveDisplayedMonthCompletionDenominator(monthStart, referenceDate)
+  const stats: MonthlyRecordsStats = {
+    recordedDays: monthlyRecords.length,
+    completionRate: monthlyRecords.length > 0 ? Math.round((monthlyRecords.length / completionBase) * 100) : 0,
+    lowestWeightLabel: monthlyRecords.length > 0 ? formatWeightLabel(Math.min(...monthlyRecords.map(record => record.weight))) : '--',
+    highestWeightLabel: monthlyRecords.length > 0 ? formatWeightLabel(Math.max(...monthlyRecords.map(record => record.weight))) : '--',
+  }
 
   return {
     monthLabel: `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`,
@@ -450,6 +642,7 @@ export function buildMonthlyRecordsView(records: CloudWeightRecord[], displayMon
     monthAverageLabel,
     weightChangeLabel,
     unitLabel: '千克',
+    stats,
     weekGroups,
   }
 }

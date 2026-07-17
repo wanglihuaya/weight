@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'wevu'
+import { getCurrentInstance, onMounted, onUnmounted, ref, useModel, watch } from 'wevu'
 
 import {
   applyWeightEntryDragDelta,
@@ -31,6 +31,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'change', 'motion'])
+const model = useModel<number>(props, 'modelValue')
 
 defineComponentJson({
   virtualHost: true,
@@ -163,7 +164,7 @@ function initCanvas() {
       canvas.height = height.value * dpr
       ctx.scale(dpr, dpr)
 
-      currentValue = quantizeWeightEntryValue(props.modelValue, props.step, props.min, props.max)
+      currentValue = quantizeWeightEntryValue(model.value, props.step, props.min, props.max)
       lastVibrateValue = currentValue
       visualOffset = 0
       draw()
@@ -198,9 +199,8 @@ function handleTouchMove(e: any) {
   velocity = velocity * 0.58 + (deltaWeight / dt) * 18
   visualOffset = clampVisualOffset(visualOffset * 0.32 + deltaWeight * 4.6)
   triggerVibration(currentValue)
-  console.log("🚀 ~ handleTouchMove ~ currentValue:", currentValue)
   draw()
-  emit('update:modelValue', Number(currentValue.toFixed(2)))
+  model.value = Number(currentValue.toFixed(2))
   emitMotion()
 }
 
@@ -219,7 +219,7 @@ function animateTo(targetValue: number) {
        velocity = 0
       visualOffset = 0
       draw()
-      emit('update:modelValue', targetValue)
+      model.value = targetValue
       emit('change', targetValue)
       emitMotion()
       rafHandle = null
@@ -228,7 +228,7 @@ function animateTo(targetValue: number) {
 
     triggerVibration(currentValue)
     draw()
-    emit('update:modelValue', Number(currentValue.toFixed(2)))
+    model.value = Number(currentValue.toFixed(2))
     emitMotion()
     rafHandle = canvas?.requestAnimationFrame?.(stepFrame)
   }
@@ -251,7 +251,7 @@ onUnmounted(() => {
   cancelFrame()
 })
 
-watch(() => props.modelValue, (val) => {
+watch(() => model.value, (val) => {
   if (isMoving) return
   const nextValue = quantizeWeightEntryValue(val, props.step, props.min, props.max)
   if (Math.abs(nextValue - currentValue) < 0.01) return
