@@ -40,9 +40,9 @@ export interface WeightEntryCanvasLayout {
 }
 
 const WEIGHT_ENTRY_MODES: WeightEntryMode[] = [
-  { key: 'now', label: '现在', icon: '◷', actionText: '记录体重', tone: '#4B9BFF', fill: '#D7E8FF' },
-  { key: 'photo', label: '照片', icon: '◉', actionText: '保存照片记录', tone: '#7367FF', fill: '#E1DDFC' },
-  { key: 'note', label: '笔记', icon: '☰', actionText: '保存体重笔记', tone: '#F28A3D', fill: '#F8E2D1' },
+  { key: 'now', label: '现在', icon: 'time', actionText: '记录体重', tone: '#1686DE', fill: '#D9EEFC' },
+  { key: 'photo', label: '照片', icon: 'image', actionText: '保存照片记录', tone: '#7162E8', fill: '#E7E2FC' },
+  { key: 'note', label: '笔记', icon: 'edit-1', actionText: '保存体重笔记', tone: '#F07A35', fill: '#FBE5D5' },
 ]
 
 function roundTo(value: number, precision = 1) {

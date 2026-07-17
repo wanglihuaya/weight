@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getCurrentInstance, onMounted, onUnmounted, ref, useModel, watch } from 'wevu'
+import { getCurrentInstance, onMounted, onUnmounted, ref, watch } from 'wevu'
 
 import {
   applyWeightEntryDragDelta,
@@ -30,11 +30,10 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['update:modelValue', 'change', 'motion'])
-const model = useModel<number>(props, 'modelValue')
+const emit = defineEmits(['update:modelValue', 'input', 'change', 'motion'])
 
 defineComponentJson({
-  virtualHost: true,
+  virtualHost: false,
   styleIsolation: 'apply-shared',
 })
 
@@ -56,7 +55,13 @@ let visualOffset = 0
 const width = ref(640)
 const height = ref(228)
 
-const pixelsPerUnit = 118
+const pixelsPerUnit = 92
+
+function resolveTouchX(e: any) {
+  const touch = e?.touches?.[0] ?? e?.changedTouches?.[0]
+  const value = touch?.clientX ?? touch?.pageX ?? touch?.x
+  return Number.isFinite(Number(value)) ? Number(value) : null
+}
 
 function cancelFrame() {
   if (canvas && rafHandle) {
@@ -164,7 +169,7 @@ function initCanvas() {
       canvas.height = height.value * dpr
       ctx.scale(dpr, dpr)
 
-      currentValue = quantizeWeightEntryValue(model.value, props.step, props.min, props.max)
+      currentValue = quantizeWeightEntryValue(props.modelValue, props.step, props.min, props.max)
       lastVibrateValue = currentValue
       visualOffset = 0
       draw()
@@ -173,9 +178,12 @@ function initCanvas() {
 }
 
 function handleTouchStart(e: any) {
+  const touchX = resolveTouchX(e)
+  if (touchX === null) return
+
   cancelFrame()
   isMoving = true
-  lastX = e.touches[0].clientX
+  lastX = touchX
   lastTimestamp = Date.now()
   velocity = 0
 }
@@ -183,7 +191,9 @@ function handleTouchStart(e: any) {
 function handleTouchMove(e: any) {
   if (!isMoving) return
 
-  const x = e.touches[0].clientX
+  const x = resolveTouchX(e)
+  if (x === null) return
+
   const rawDx = x - lastX
   const now = Date.now()
   const dt = Math.max(now - lastTimestamp, 16)
@@ -200,7 +210,9 @@ function handleTouchMove(e: any) {
   visualOffset = clampVisualOffset(visualOffset * 0.32 + deltaWeight * 4.6)
   triggerVibration(currentValue)
   draw()
-  model.value = Number(currentValue.toFixed(2))
+  const outputValue = Number(currentValue.toFixed(2))
+  emit('update:modelValue', outputValue)
+  emit('input', outputValue)
   emitMotion()
 }
 
@@ -216,10 +228,11 @@ function animateTo(targetValue: number) {
     if (Math.abs(targetValue - currentValue) < 0.01 && Math.abs(velocity) < 0.01) {
       currentValue = targetValue
       lastVibrateValue = targetValue
-       velocity = 0
+      velocity = 0
       visualOffset = 0
       draw()
-      model.value = targetValue
+      emit('update:modelValue', targetValue)
+      emit('input', targetValue)
       emit('change', targetValue)
       emitMotion()
       rafHandle = null
@@ -228,7 +241,9 @@ function animateTo(targetValue: number) {
 
     triggerVibration(currentValue)
     draw()
-    model.value = Number(currentValue.toFixed(2))
+    const outputValue = Number(currentValue.toFixed(2))
+    emit('update:modelValue', outputValue)
+    emit('input', outputValue)
     emitMotion()
     rafHandle = canvas?.requestAnimationFrame?.(stepFrame)
   }
@@ -237,6 +252,8 @@ function animateTo(targetValue: number) {
 }
 
 function handleTouchEnd() {
+  if (!isMoving) return
+
   isMoving = false
   animateTo(projectWeightEntryTarget(currentValue, velocity, props.step, props.min, props.max))
 }
@@ -251,7 +268,7 @@ onUnmounted(() => {
   cancelFrame()
 })
 
-watch(() => model.value, (val) => {
+watch(() => props.modelValue, (val) => {
   if (isMoving) return
   const nextValue = quantizeWeightEntryValue(val, props.step, props.min, props.max)
   if (Math.abs(nextValue - currentValue) < 0.01) return
@@ -270,10 +287,10 @@ watch(() => model.value, (val) => {
       :id="canvasId"
       type="2d"
       class="entry-ruler-canvas"
-      @touchstart="handleTouchStart"
-      @touchmove="handleTouchMove"
-      @touchend="handleTouchEnd"
-      @touchcancel="handleTouchEnd"
+      @touchstart.stop="handleTouchStart"
+      @touchmove.stop="handleTouchMove"
+      @touchend.stop="handleTouchEnd"
+      @touchcancel.stop="handleTouchEnd"
     />
     <view class="entry-ruler-mask entry-ruler-mask-left" />
     <view class="entry-ruler-mask entry-ruler-mask-right" />

@@ -134,7 +134,7 @@ async function loadMonthData(month: number) {
             <view class="nav-chevron nav-chevron-left" />
           </view>
           <view
-            class="calendar-nav-btn"
+            class="calendar-nav-btn calendar-nav-btn-next"
             :class="canMoveNext ? '' : 'calendar-nav-btn-disabled'"
             hover-class="calendar-nav-btn-active"
             :hover-stay-time="80"
@@ -166,7 +166,11 @@ async function loadMonthData(month: number) {
             <text :class="day.isRecorded ? 'calendar-day-recorded-text' : 'calendar-day-idle-text'">
               {{ day.label }}
             </text>
-            <view v-if="day.isToday" class="calendar-day-underline" />
+            <view
+              v-if="day.isToday"
+              class="calendar-day-underline"
+              :class="day.isRecorded ? 'calendar-day-underline-light' : 'calendar-day-underline-accent'"
+            />
           </view>
         </view>
       </view>
@@ -217,11 +221,15 @@ async function loadMonthData(month: number) {
 
 <style scoped>
 .data-panel {
+  width: 100%;
+  box-sizing: border-box;
   padding-top: 18rpx;
   padding-bottom: 220rpx;
 }
 
 .calendar-card {
+  width: 100%;
+  box-sizing: border-box;
   overflow: hidden;
   border-radius: 48rpx;
   background: #ffffff;
@@ -231,6 +239,7 @@ async function loadMonthData(month: number) {
 
 .calendar-header {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   padding: 0 6rpx;
@@ -246,14 +255,20 @@ async function loadMonthData(month: number) {
 
 .calendar-nav {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 20rpx;
+}
+
+.calendar-nav-btn-next {
+  margin-left: 20rpx;
 }
 
 .calendar-nav-btn {
   display: flex;
+  flex-direction: row;
   height: 58rpx;
   width: 58rpx;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999rpx;
@@ -286,6 +301,7 @@ async function loadMonthData(month: number) {
 
 .calendar-status {
   display: flex;
+  flex-direction: row;
   align-items: center;
   margin: 18rpx 6rpx -4rpx;
   color: #92949c;
@@ -296,6 +312,7 @@ async function loadMonthData(month: number) {
 .calendar-status-dot {
   height: 10rpx;
   width: 10rpx;
+  flex-shrink: 0;
   margin-right: 10rpx;
   border-radius: 999rpx;
 }
@@ -309,13 +326,18 @@ async function loadMonthData(month: number) {
 }
 
 .calendar-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  width: 100%;
   margin-top: 42rpx;
   text-align: center;
 }
 
 .calendar-weekday {
+  display: block;
+  width: 14.285714%;
+  flex-shrink: 0;
   color: #c4c5ca;
   font-size: 23rpx;
   font-weight: 500;
@@ -323,15 +345,20 @@ async function loadMonthData(month: number) {
 }
 
 .calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
   margin-top: 14rpx;
   text-align: center;
 }
 
 .calendar-cell {
   display: flex;
+  flex-direction: row;
+  width: 14.285714%;
   min-height: 88rpx;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 }
@@ -339,15 +366,17 @@ async function loadMonthData(month: number) {
 .calendar-day {
   position: relative;
   display: flex;
+  flex-direction: row;
   height: 72rpx;
   width: 72rpx;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999rpx;
 }
 
 .calendar-day-recorded {
-  background: linear-gradient(145deg, #eeeeef 0%, #dcdcdf 100%);
+  background: #e3e3e5;
 }
 
 .calendar-day-recorded-text {
@@ -370,32 +399,43 @@ async function loadMonthData(month: number) {
   width: 26rpx;
   transform: translateX(-50%);
   border-radius: 999rpx;
-  background: #2f95ed;
 }
 
-.calendar-day-recorded .calendar-day-underline {
+.calendar-day-underline-light {
   background: #ffffff;
+}
+
+.calendar-day-underline-accent {
+  background: #2f95ed;
 }
 
 .month-summary {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1.24fr 42rpx;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
   margin-top: 18rpx;
   border-top: 2rpx solid #ededf0;
   padding: 28rpx 0 30rpx;
 }
 
 .month-summary-item {
-  min-width: 0;
+  box-sizing: border-box;
   padding: 0 8rpx;
 }
 
 .month-summary-average {
+  width: 37%;
+  flex-shrink: 0;
   border-right: 2rpx solid #e8e8eb;
 }
 
 .month-summary-change {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0%;
   padding-left: 28rpx;
 }
 
@@ -407,6 +447,7 @@ async function loadMonthData(month: number) {
 
 .month-summary-value {
   display: flex;
+  flex-direction: row;
   align-items: baseline;
   margin-top: 14rpx;
   color: #08090c;
@@ -424,14 +465,16 @@ async function loadMonthData(month: number) {
 
 .month-summary-change-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
 }
 
 .change-direction {
   display: flex;
+  flex-direction: row;
   height: 38rpx;
   width: 38rpx;
-  flex: none;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   margin-top: 14rpx;
@@ -446,6 +489,9 @@ async function loadMonthData(month: number) {
 
 .summary-chevron-wrap {
   display: flex;
+  flex-direction: row;
+  width: 42rpx;
+  flex-shrink: 0;
   align-items: center;
   justify-content: flex-end;
 }
@@ -474,6 +520,8 @@ async function loadMonthData(month: number) {
 }
 
 .week-card {
+  width: 100%;
+  box-sizing: border-box;
   border-radius: 999rpx;
   background: #ffffff;
   padding: 28rpx 30rpx;
@@ -482,6 +530,7 @@ async function loadMonthData(month: number) {
 
 .week-card-content {
   display: flex;
+  flex-direction: row;
   min-height: 34rpx;
   align-items: center;
 }
@@ -489,7 +538,7 @@ async function loadMonthData(month: number) {
 .week-dot {
   height: 24rpx;
   width: 24rpx;
-  flex: none;
+  flex-shrink: 0;
   border-radius: 999rpx;
   background: #d1d2d5;
 }
@@ -500,6 +549,9 @@ async function loadMonthData(month: number) {
 }
 
 .week-summary {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0%;
   margin-left: 20rpx;
   color: #929398;
   font-size: 29rpx;

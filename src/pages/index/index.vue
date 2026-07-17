@@ -69,8 +69,8 @@ const navbarTitle = computed(() => {
 })
 const scrollTop = ref(0)
 const useWorklet = ref(false)
-const navbarGlassFallbackClass = computed(() => (
-  !useWorklet.value && scrollTop.value > 8 ? 'navbar-glass--active' : ''
+const navbarGradientFallbackClass = computed(() => (
+  !useWorklet.value && scrollTop.value > 8 ? 'navbar-gradient--active' : ''
 ))
 
 // ==========================================
@@ -222,9 +222,8 @@ onMounted(() => {
         return { transform: `scale(${containerScale.value})` }
       })
 
-      // 导航栏 Liquid Glass 随滚动显现
-      // blur 强度由静态分层负责，Worklet 仅驱动合成层 opacity，避免 UI 线程高频重算滤镜
-      pageInstance.applyAnimatedStyle('.navbar-glass', () => {
+      // iOS 26 风格白色渐变随滚动显现，无模糊滤镜
+      pageInstance.applyAnimatedStyle('.navbar-gradient', () => {
         'worklet'
         const progress = Math.min(Math.max((scrollY.value - 6) / 72, 0), 1)
         return {
@@ -257,25 +256,13 @@ onUnmounted(() => {
     class="w-full fixed top-0 left-0 z-50"
     :style="navbarHeightStyle"
   >
-    <!-- iOS 26 风格 Liquid Glass：多层模糊 + 折射高光 + 底部渐隐 -->
+    <!-- iOS 26 风格：纯白到透明的细腻渐变，无模糊滤镜 -->
     <view
-      class="navbar-glass pointer-events-none absolute left-0 top-0 w-full"
-      :class="navbarGlassFallbackClass"
+      class="navbar-gradient pointer-events-none absolute left-0 top-0 w-full"
+      :class="navbarGradientFallbackClass"
     >
-      <view class="navbar-glass__blur navbar-glass__blur-00 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-01 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-02 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-03 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-04 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-05 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-06 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-07 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-08 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-09 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__blur navbar-glass__blur-10 absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__veil absolute left-0 top-0 w-full h-full" />
-      <view class="navbar-glass__tint absolute left-0 top-0 w-full h-full" />
-      <view class="navbar-glass__highlight absolute left-0 top-0 w-full" />
+      <view class="navbar-gradient__base absolute left-0 top-0 h-full w-full" />
+      <view class="navbar-gradient__sheen absolute left-0 top-0 w-full" />
     </view>
 
     <!-- 内容层 -->
@@ -294,6 +281,7 @@ onUnmounted(() => {
   <!-- 主内容滚动区 (Main Content) -->
   <!-- ========================================== -->
   <scroll-view
+    type="list"
     enable-back-to-top
     scroll-anchoring
     enable-passive
@@ -312,7 +300,7 @@ onUnmounted(() => {
 
     <!-- 内容列表容器 -->
     <view v-if="activeKey==='data'">
-      <WeightDashboard />
+      <WeightDashboard id="weight-dashboard" />
     </view>
     <view v-if="activeKey==='widget'" class="pb-[200rpx]">
       <WidgetPanel />
@@ -327,7 +315,7 @@ onUnmounted(() => {
     <!-- ========================================== -->
     <!-- 悬浮 TabBar (Floating Animted Tabs) -->
     <!-- ========================================== -->
-    <t-fab class="home-tabbar-fab w-full !right-0 px-4 !bottom-[26rpx]">
+    <t-fab class="home-tabbar-fab w-full !right-0 px-4 !bottom-[50rpx]">
       <view
         class="tabs-container home-tabbar w-full"
         @touchstart="handleContainerTouchStart"
@@ -370,11 +358,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* iOS 26 inspired Liquid Glass
- * Skyline 不支持 gradient mask，因此用十层 5% 级差的 blur 形成细腻渐隐。
- */
-.navbar-glass {
-  height: calc(100% + 68rpx);
+/* iOS 26 inspired navbar：纯白色透明度渐变，不使用 backdrop-filter。 */
+.navbar-gradient {
+  height: calc(100% + 104rpx);
   opacity: 0;
   transform: translateY(-4px);
   transition:
@@ -382,116 +368,34 @@ onUnmounted(() => {
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.navbar-glass--active {
+.navbar-gradient--active {
   opacity: 1;
   transform: translateY(0);
 }
 
-.navbar-glass__blur {
-  background: rgba(249, 251, 255, 0.02);
-}
-
-.navbar-glass__blur-00 {
-  height: 112%;
-  opacity: 0.18;
-  backdrop-filter: blur(1px);
-}
-
-.navbar-glass__blur-01 {
-  height: 106%;
-  opacity: 0.24;
-  backdrop-filter: blur(2px);
-}
-
-.navbar-glass__blur-02 {
-  height: 100%;
-  opacity: 0.3;
-  backdrop-filter: blur(3px);
-}
-
-.navbar-glass__blur-03 {
-  height: 94%;
-  opacity: 0.36;
-  backdrop-filter: blur(5px);
-}
-
-.navbar-glass__blur-04 {
-  height: 88%;
-  opacity: 0.42;
-  backdrop-filter: blur(7px);
-}
-
-.navbar-glass__blur-05 {
-  height: 82%;
-  opacity: 0.44;
-  backdrop-filter: blur(10px);
-}
-
-.navbar-glass__blur-06 {
-  height: 76%;
-  opacity: 0.42;
-  backdrop-filter: blur(14px);
-}
-
-.navbar-glass__blur-07 {
-  height: 70%;
-  opacity: 0.39;
-  backdrop-filter: blur(18px);
-}
-
-.navbar-glass__blur-08 {
-  height: 64%;
-  opacity: 0.35;
-  backdrop-filter: blur(24px);
-}
-
-.navbar-glass__blur-09 {
-  height: 58%;
-  opacity: 0.31;
-  backdrop-filter: blur(31px);
-}
-
-.navbar-glass__blur-10 {
-  height: 52%;
-  opacity: 0.27;
-  backdrop-filter: blur(40px);
-}
-
-.navbar-glass__veil {
-  height: 112%;
+.navbar-gradient__base {
   background: linear-gradient(
     to bottom,
-    rgba(252, 253, 255, 0.5) 0%,
-    rgba(252, 253, 255, 0.34) 46%,
-    rgba(250, 252, 255, 0.19) 64%,
-    rgba(248, 251, 255, 0.09) 78%,
-    rgba(248, 251, 255, 0.03) 90%,
-    rgba(248, 251, 255, 0) 100%
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.96) 24%,
+    rgba(255, 255, 255, 0.9) 38%,
+    rgba(255, 255, 255, 0.78) 50%,
+    rgba(255, 255, 255, 0.62) 61%,
+    rgba(255, 255, 255, 0.44) 71%,
+    rgba(255, 255, 255, 0.28) 80%,
+    rgba(255, 255, 255, 0.15) 88%,
+    rgba(255, 255, 255, 0.06) 94%,
+    rgba(255, 255, 255, 0) 100%
   );
 }
 
-.navbar-glass__tint {
-  height: 68%;
-  background-image:
-    linear-gradient(
-      112deg,
-      rgba(91, 196, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0) 42%
-    ),
-    linear-gradient(
-      248deg,
-      rgba(255, 184, 138, 0.09) 0%,
-      rgba(255, 255, 255, 0) 46%
-    );
-}
-
-.navbar-glass__highlight {
-  height: 2rpx;
+.navbar-gradient__sheen {
+  height: 58%;
   background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.86) 48%,
-    rgba(255, 255, 255, 0.12) 100%
+    to bottom,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.18) 58%,
+    rgba(255, 255, 255, 0) 100%
   );
 }
 

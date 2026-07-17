@@ -11,12 +11,8 @@ const ENTRY_WEIGHT_MIN = 30
 const ENTRY_WEIGHT_MAX = 150
 const ENTRY_WEIGHT_STEP = 0.1
 const DEFAULT_WEIGHT = 70
-
 defineComponentJson({
   styleIsolation: 'apply-shared',
-  usingComponents: {
-    "t-popup": "tdesign-miniprogram/popup/popup",
-  },
 })
 
 const weightValue = ref(DEFAULT_WEIGHT)
@@ -140,8 +136,14 @@ function closeEntryPopup() {
   entryPopupVisible.value = false
 }
 
+function blockEntryOverlayTouchMove() {}
+
 function selectEntryMode(modeKey: string) {
   entryModeKey.value = modeKey as typeof entryModeKey.value
+}
+
+function selectEntryModeFromEvent(event: WechatMiniprogram.TouchEvent) {
+  selectEntryMode(String(event.currentTarget.dataset.modeKey || 'now'))
 }
 
 async function saveEntryWeight() {
@@ -168,21 +170,13 @@ async function saveEntryWeight() {
   }
 }
 
-function handleEntryPopupVisibleChange(e: WechatMiniprogram.CustomEvent<{ visible: boolean }>) {
-  entryPopupVisible.value = !!e.detail.visible
-  if (!entryPopupVisible.value) {
-    entryMotionOffset.value = 0
-    entryAtMin.value = false
-    entryAtMax.value = false
-  }
-}
-
-function handleEntryRulerMotion(e: WechatMiniprogram.CustomEvent<{ offset?: number, atMin?: boolean, atMax?: boolean, dragging?: boolean }>) {
-  entryMotionOffset.value = e.detail?.offset ?? 0
-  entryAtMin.value = !!e.detail?.atMin
-  entryAtMax.value = !!e.detail?.atMax
-  const nextWeight = resolveWeightEntryPayloadValue(e)
-  if (e.detail?.dragging && nextWeight !== undefined) {
+function handleEntryRulerMotion(payload: WechatMiniprogram.CustomEvent<{ offset?: number, atMin?: boolean, atMax?: boolean, dragging?: boolean }> | { offset?: number, atMin?: boolean, atMax?: boolean, dragging?: boolean, current?: number }) {
+  const detail = 'detail' in payload && payload.detail ? payload.detail : payload
+  entryMotionOffset.value = detail.offset ?? 0
+  entryAtMin.value = !!detail.atMin
+  entryAtMax.value = !!detail.atMax
+  const nextWeight = resolveWeightEntryPayloadValue(payload)
+  if (detail.dragging && nextWeight !== undefined) {
     draftWeight.value = Number(nextWeight.toFixed(1))
   }
 }
@@ -436,13 +430,9 @@ function onDraftWeightChange(payload: unknown) {
       <view v-if="!entryPopupVisible" class="add-button" hover-class="add-button-active" @tap="openEntryPopup">+</view>
     </view>
 
-    <t-popup
-      :visible="entryPopupVisible"
-      placement="bottom"
-      :close-on-overlay-click="true"
-      @visible-change="handleEntryPopupVisibleChange"
-    >
-      <view v-if="entryPopupVisible" class="entry-popup-shell">
+    <view v-if="entryPopupVisible" class="entry-layer">
+      <view class="entry-overlay" @tap="closeEntryPopup" @touchmove.stop="blockEntryOverlayTouchMove" />
+      <view class="entry-popup-shell">
         <view class="entry-popup-card">
           <view class="entry-popup-head">
             <view class="entry-mode-row">
@@ -452,16 +442,20 @@ function onDraftWeightChange(payload: unknown) {
                 class="entry-mode-pill"
                 :style="`background:${mode.fill};color:${mode.tone};`"
                 :class="mode.key === entryModeKey ? 'entry-mode-pill-active' : 'entry-mode-pill-muted'"
-                @tap="selectEntryMode(mode.key)"
+                :data-mode-key="mode.key"
+                @tap="selectEntryModeFromEvent"
               >
-                <text class="entry-mode-icon">{{ mode.icon }}</text>
-                <text>{{ mode.label }}</text>
+                <view class="entry-mode-icon">
+                  <t-icon :name="mode.icon" size="28rpx" />
+                </view>
+                <text class="entry-mode-label">{{ mode.label }}</text>
               </view>
             </view>
 
             <view class="entry-tools">
-              <view class="entry-tool-circle">…</view>
-              <view class="entry-tool-circle entry-tool-close" @tap="closeEntryPopup">×</view>
+              <view class="entry-tool-circle entry-tool-close" hover-class="entry-tool-close-active" @tap="closeEntryPopup">
+                <t-icon name="close" size="32rpx" />
+              </view>
             </view>
           </view>
 
@@ -474,12 +468,14 @@ function onDraftWeightChange(payload: unknown) {
 
           <view class="entry-ruler-wrap">
             <WeightEntryRuler
-              v-model="draftWeight"
+              id="entry-weight-ruler"
+              :model-value="draftWeight"
               :min="ENTRY_WEIGHT_MIN"
               :max="ENTRY_WEIGHT_MAX"
               :step="ENTRY_WEIGHT_STEP"
-              @change="onDraftWeightChange"
-              @motion="handleEntryRulerMotion"
+              bindinput="onDraftWeightChange"
+              bindchange="onDraftWeightChange"
+              bindmotion="handleEntryRulerMotion"
             />
           </view>
 
@@ -506,7 +502,7 @@ function onDraftWeightChange(payload: unknown) {
           </view>
         </view>
       </view>
-    </t-popup>
+    </view>
   </view>
 </template>
 
@@ -1079,7 +1075,7 @@ function onDraftWeightChange(payload: unknown) {
 .add-button {
   position: fixed;
   left: 50%;
-  bottom: 164rpx;
+  bottom: 188rpx;
   z-index: 60;
   height: 120rpx;
   width: 120rpx;
@@ -1102,76 +1098,125 @@ function onDraftWeightChange(payload: unknown) {
   background: rgba(45, 46, 51, 0.98);
 }
 
+.entry-layer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 12000;
+}
+
+.entry-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(31, 34, 41, 0.28);
+}
+
 .entry-popup-shell {
-  padding: 0 14rpx 20rpx;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 20rpx);
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  padding: 0 20rpx 8rpx;
 }
 
 .entry-popup-card {
-  border-radius: 40rpx 40rpx 34rpx 34rpx;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 -16rpx 60rpx rgba(15, 23, 42, 0.08);
-  padding: 30rpx 26rpx 26rpx;
+  overflow: hidden;
+  border: 2rpx solid rgba(255, 255, 255, 0.94);
+  border-radius: 44rpx;
+  background: #fbfbfc;
+  box-shadow:
+    0 -16rpx 60rpx rgba(15, 23, 42, 0.1),
+    0 28rpx 80rpx rgba(15, 23, 42, 0.16),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.98);
+  padding: 30rpx 28rpx calc(env(safe-area-inset-bottom) + 18rpx);
 }
 
 .entry-popup-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .entry-mode-row {
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  flex-wrap: wrap;
+  gap: 10rpx;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .entry-mode-pill {
   display: flex;
   align-items: center;
-  gap: 10rpx;
-  padding: 14rpx 24rpx;
+  justify-content: center;
+  gap: 8rpx;
+  height: 60rpx;
+  padding: 0 20rpx;
   border-radius: 9999rpx;
-  font-size: 26rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.58);
+  font-size: 24rpx;
   line-height: 1;
-  font-weight: 600;
+  font-weight: 500;
+  transition: transform 120ms ease-out, opacity 120ms ease-out, box-shadow 120ms ease-out;
 }
 
 .entry-mode-pill-active {
-  transform: scale(1);
-  box-shadow: 0 10rpx 24rpx rgba(17, 17, 21, 0.08);
+  opacity: 1;
+  transform: scale(1.02);
+  box-shadow:
+    0 8rpx 18rpx rgba(17, 17, 21, 0.08),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.72);
 }
 
 .entry-mode-pill-muted {
-  opacity: 0.72;
+  opacity: 0.68;
 }
 
 .entry-mode-icon {
-  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28rpx;
+  width: 28rpx;
+}
+
+.entry-mode-label {
+  line-height: 1;
 }
 
 .entry-tools {
   display: flex;
   align-items: center;
-  gap: 16rpx;
   flex-shrink: 0;
 }
 
 .entry-tool-circle {
-  height: 56rpx;
-  width: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  width: 64rpx;
   border-radius: 9999rpx;
-  background: #f0f1f4;
-  color: #131318;
-  font-size: 32rpx;
-  line-height: 56rpx;
-  text-align: center;
+  border: 1rpx solid rgba(20, 22, 28, 0.04);
+  background: #eceef1;
+  color: #17191f;
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
 }
 
 .entry-tool-close {
-  font-size: 40rpx;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.72);
+}
+
+.entry-tool-close-active {
+  transform: scale(0.92);
+  background: #e1e3e7;
 }
 
 .entry-readout {
@@ -1208,6 +1253,7 @@ function onDraftWeightChange(payload: unknown) {
 .entry-ruler-wrap {
   margin-top: 72rpx;
   overflow: hidden;
+  border-radius: 24rpx;
 }
 
 .entry-limit-row {
