@@ -3,11 +3,24 @@ export interface SettingsSnapshot {
   membershipBadge: string
   baselineWeight: number
   targetWeight: number
+  bmiLabel: string
   unitLabel: string
   indicatorLabel: string
   weekStartLabel: string
   weightReminderLabel: string
   milestoneReminderLabel: string
+}
+
+export interface SettingsPreferences {
+  baselineWeight: number
+  targetWeight: number
+  heightCm: number
+  unit: 'kg' | 'lb'
+  indicator: 'classic' | 'compact'
+  weekStart: 'monday' | 'sunday'
+  weightReminderEnabled: boolean
+  weightReminderTime: string
+  milestoneReminderEnabled: boolean
 }
 
 export interface SettingsItem {
@@ -72,17 +85,34 @@ function mondayIndex(day: number) {
   return day === 0 ? 6 : day - 1
 }
 
-export function buildSettingsSnapshot(_now = new Date()): SettingsSnapshot {
+export function buildSettingsSnapshot(
+  _now = new Date(),
+  preferences: SettingsPreferences = {
+    baselineWeight: 67,
+    targetWeight: 66.5,
+    heightCm: 172,
+    unit: 'kg',
+    indicator: 'classic',
+    weekStart: 'monday',
+    weightReminderEnabled: false,
+    weightReminderTime: '08:00',
+    milestoneReminderEnabled: true,
+  },
+): SettingsSnapshot {
+  const isPound = preferences.unit === 'lb'
+  const weightFactor = isPound ? 2.2046226218 : 1
+
   return {
     membershipTitle: 'MyWeight² 会员',
     membershipBadge: '高级版',
-    baselineWeight: 67,
-    targetWeight: 66.5,
-    unitLabel: '千克',
-    indicatorLabel: '经典',
-    weekStartLabel: '周一',
-    weightReminderLabel: '关闭',
-    milestoneReminderLabel: '开启',
+    baselineWeight: preferences.baselineWeight * weightFactor,
+    targetWeight: preferences.targetWeight * weightFactor,
+    bmiLabel: `${preferences.heightCm.toFixed(1)}厘米`,
+    unitLabel: isPound ? '磅' : '千克',
+    indicatorLabel: preferences.indicator === 'classic' ? '经典' : '紧凑',
+    weekStartLabel: preferences.weekStart === 'monday' ? '周一' : '周日',
+    weightReminderLabel: preferences.weightReminderEnabled ? preferences.weightReminderTime : '关闭',
+    milestoneReminderLabel: preferences.milestoneReminderEnabled ? '开启' : '关闭',
   }
 }
 
@@ -93,7 +123,7 @@ export function buildSettingsSections(snapshot: SettingsSnapshot): SettingsSecti
       items: [
         { key: 'baseline', label: '基准体重', value: formatWeight(snapshot.baselineWeight, snapshot.unitLabel), iconKey: 'baseline' },
         { key: 'goal', label: '体重目标', value: formatWeight(snapshot.targetWeight, snapshot.unitLabel), iconKey: 'goal' },
-        { key: 'bmi', label: 'BMI设置', iconKey: 'bmi' },
+        { key: 'bmi', label: 'BMI设置', value: snapshot.bmiLabel, iconKey: 'bmi' },
       ],
     },
     {

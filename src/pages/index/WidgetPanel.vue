@@ -1,65 +1,66 @@
 <script setup lang="ts">
+import { computed, onMounted } from 'wevu'
+
+import {
+  cloudUserSettings,
+  cloudUserSettingsError,
+  cloudUserSettingsLoading,
+  cloudUserSettingsReady,
+  refreshUserSettings,
+} from '@/services/settingsStore'
+import {
+  cloudWeightLastSyncedAt,
+  cloudWeightRecords,
+  cloudWeightRecordsLoading,
+  cloudWeightRecordsReady,
+  cloudWeightStoreError,
+  refreshWeightRecords,
+} from '@/services/weightStore'
+
+import { buildWidgetPanelView } from './widgetModels'
+
 defineComponentJson({
   virtualHost: true,
   styleIsolation: 'apply-shared',
 })
 
-interface TrendPoint {
-  x: number
-  y: number
-}
+const introCopy = 'MyWeight² 包含一组精心设计的小组件，帮助你\n每日追踪自己的体重。'
 
-const weekdays = [
-  { key: 'mon', label: '一', tone: 'coral', position: 34 },
-  { key: 'tue', label: '二', tone: 'blue', position: 51 },
-  { key: 'wed', label: '三', tone: 'blue', position: 69 },
-  { key: 'thu', label: '四', tone: 'coral', position: 57 },
-  { key: 'fri', label: '五', tone: 'blue', position: 76, active: true },
-  { key: 'sat', label: '六', tone: 'muted', position: 0 },
-  { key: 'sun', label: '日', tone: 'muted', position: 0 },
-]
+const panel = computed(() => {
+  const referenceDate = cloudWeightLastSyncedAt.value
+    ? new Date(cloudWeightLastSyncedAt.value)
+    : new Date()
+  return buildWidgetPanelView(
+    cloudWeightRecords.value,
+    referenceDate,
+    cloudUserSettings.value,
+  )
+})
 
-const weekRecords = [
-  { key: 'sat', day: '六', value: '87.6', tone: 'blue' },
-  { key: 'sun', day: '日', value: '87.2', tone: 'blue' },
-  { key: 'mon', day: '一', value: '88.0', tone: 'coral' },
-  { key: 'tue', day: '二', value: '87.6', tone: 'blue' },
-  { key: 'wed', day: '三', value: '87.0', tone: 'blue' },
-  { key: 'thu', day: '四', value: '87.4', tone: 'coral' },
-  { key: 'fri', day: '五', value: '87.2', tone: 'blue', active: true },
-]
+const syncStatus = computed(() => {
+  if (cloudWeightRecordsLoading.value || cloudUserSettingsLoading.value) {
+    return '正在同步云端数据…'
+  }
+  if (cloudWeightStoreError.value || cloudUserSettingsError.value) {
+    return cloudWeightStoreError.value || cloudUserSettingsError.value
+  }
+  if (!panel.value.hasRecords) {
+    return '暂无体重记录，新增记录后小组件会自动更新'
+  }
+  return `已载入 ${cloudWeightRecords.value.length} 条真实记录`
+})
 
-const trendPoints: TrendPoint[] = [
-  { x: 0, y: 28 },
-  { x: 18, y: 40 },
-  { x: 36, y: 34 },
-  { x: 54, y: 55 },
-  { x: 74, y: 50 },
-  { x: 94, y: 74 },
-  { x: 114, y: 62 },
-  { x: 134, y: 78 },
-  { x: 154, y: 72 },
-  { x: 174, y: 108 },
-  { x: 194, y: 88 },
-  { x: 214, y: 119 },
-  { x: 234, y: 112 },
-  { x: 254, y: 132 },
-]
-
-const trendSegments = trendPoints.slice(0, -1).map((point, index) => {
-  const next = trendPoints[index + 1]
-  const deltaX = next.x - point.x
-  const deltaY = next.y - point.y
-  const length = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-  const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI
-
-  return {
-    key: `segment-${index}`,
-    style: `left:${point.x}rpx;top:${point.y}rpx;width:${length}rpx;transform:rotate(${angle}deg);`,
+onMounted(() => {
+  if (!cloudWeightRecordsReady.value) {
+    refreshWeightRecords().catch(() => undefined)
+  }
+  if (!cloudUserSettingsReady.value) {
+    refreshUserSettings().catch(() => undefined)
   }
 })
 
-function showWidgetTip(name: string) {
+function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
+  const name = String(event.currentTarget.dataset.widgetName || '体重')
   wx.showToast({
     title: `${name}小组件`,
     icon: 'none',
@@ -70,26 +71,28 @@ function showWidgetTip(name: string) {
 <template>
   <view class="widget-panel">
     <view class="widget-intro">
-      <text class="widget-intro__copy">
-        MyWeight² 包含一组精心设计的小组件，帮助你每日追踪自己的体重。
-      </text>
+      <text class="widget-intro__copy">{{ introCopy }}</text>
+      <text class="widget-intro__status">{{ syncStatus }}</text>
     </view>
 
     <view class="compact-widgets">
       <view
         class="compact-card compact-card--week"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('一周体重')"
+        data-widget-name="一周体重"
+        @tap="showWidgetTip"
       >
         <view class="compact-week__header">
           <text>体重</text>
-          <text class="compact-week__value">87.2<text class="compact-week__unit"> 千克</text></text>
+          <text class="compact-week__value">
+            {{ panel.currentWeightLabel }}<text v-if="panel.hasRecords" class="compact-week__unit"> {{ panel.unitLabel }}</text>
+          </text>
         </view>
         <view class="compact-week__bars">
-          <view v-for="day in weekdays" :key="day.key" class="compact-week__day">
+          <view v-for="day in panel.weekdays" :key="day.key" class="compact-week__day">
             <view class="compact-week__rail">
               <view
-                v-if="day.position"
+                v-if="day.hasRecord"
                 class="compact-week__dot"
                 :class="`compact-week__dot--${day.tone}`"
                 :style="`top:${day.position}%;`"
@@ -103,13 +106,14 @@ function showWidgetTip(name: string) {
       <view
         class="compact-card compact-card--ring"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('当前体重')"
+        data-widget-name="当前体重"
+        @tap="showWidgetTip"
       >
         <view class="compact-ring">
           <view class="compact-ring__gap" />
           <view class="compact-ring__center">
-            <text class="compact-ring__value">87.2</text>
-            <text class="compact-ring__unit">千克</text>
+            <text class="compact-ring__value">{{ panel.currentWeightLabel }}</text>
+            <text v-if="panel.hasRecords" class="compact-ring__unit">{{ panel.unitLabel }}</text>
           </view>
         </view>
       </view>
@@ -117,11 +121,14 @@ function showWidgetTip(name: string) {
       <view
         class="compact-card compact-card--change"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('体重变化')"
+        data-widget-name="体重变化"
+        @tap="showWidgetTip"
       >
-        <text class="compact-change__arrow">↓</text>
-        <text class="compact-change__value">3.2<text class="compact-change__unit">千克</text></text>
-        <text class="compact-change__days">21 天</text>
+        <text class="compact-change__arrow">{{ panel.deltaArrow }}</text>
+        <text class="compact-change__value">
+          {{ panel.deltaLabel }}<text v-if="panel.hasRecords" class="compact-change__unit">{{ panel.unitLabel }}</text>
+        </text>
+        <text class="compact-change__days">{{ panel.trackedDays }} 天</text>
       </view>
     </view>
 
@@ -129,41 +136,49 @@ function showWidgetTip(name: string) {
       <view
         class="widget-card gauge-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('今日体重')"
+        data-widget-name="今日体重"
+        @tap="showWidgetTip"
       >
-        <text class="widget-eyebrow">今天</text>
-        <view class="gauge-widget__weight">87.2<text class="gauge-widget__unit"> 千克</text></view>
+        <text class="widget-eyebrow">{{ panel.primaryLabel }}</text>
+        <view class="gauge-widget__weight">
+          {{ panel.currentWeightLabel }}<text v-if="panel.hasRecords" class="gauge-widget__unit"> {{ panel.unitLabel }}</text>
+        </view>
         <view class="weight-gauge">
           <view class="weight-gauge__track" />
           <view class="weight-gauge__ticks">
             <view v-for="item in 5" :key="item" class="weight-gauge__tick" />
           </view>
-          <view class="weight-gauge__marker" />
-          <text class="weight-gauge__min">87</text>
-          <text class="weight-gauge__max">88</text>
+          <view v-if="panel.hasRecords" class="weight-gauge__marker" :style="panel.gaugeMarkerStyle" />
+          <text class="weight-gauge__min">{{ panel.gaugeMinLabel }}</text>
+          <text class="weight-gauge__max">{{ panel.gaugeMaxLabel }}</text>
         </view>
         <view class="gauge-widget__change">
-          <view class="change-badge">↓</view>
-          <text>3.2 千克</text>
+          <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">{{ panel.deltaArrow }}</view>
+          <text>
+            {{ panel.deltaLabel }}<text v-if="panel.hasRecords"> {{ panel.unitLabel }}</text>
+          </text>
         </view>
-        <text class="gauge-widget__days">21 天</text>
+        <text class="gauge-widget__days">{{ panel.trackedDays }} 天</text>
       </view>
 
       <view
         class="widget-card week-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('周记录')"
+        data-widget-name="周记录"
+        @tap="showWidgetTip"
       >
         <view class="week-widget__header">
           <text class="widget-eyebrow">体重</text>
-          <text class="week-widget__date">7月17日</text>
+          <text class="week-widget__date">{{ panel.latestDateLabel }}</text>
         </view>
-        <view class="week-widget__weight">87.2<text class="week-widget__unit"> 千克</text></view>
+        <view class="week-widget__weight">
+          {{ panel.currentWeightLabel }}<text v-if="panel.hasRecords" class="week-widget__unit"> {{ panel.unitLabel }}</text>
+        </view>
         <view class="week-widget__bars">
-          <view v-for="day in weekdays" :key="day.key" class="week-widget__day">
+          <view v-for="day in panel.weekdays" :key="day.key" class="week-widget__day">
             <view class="week-widget__rail">
               <view
-                v-if="day.position"
+                v-if="day.hasRecord"
                 class="week-widget__dot"
                 :class="`week-widget__dot--${day.tone}`"
                 :style="`top:${day.position}%;`"
@@ -177,22 +192,23 @@ function showWidgetTip(name: string) {
       <view
         class="widget-card calendar-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('日历记录')"
+        data-widget-name="日历记录"
+        @tap="showWidgetTip"
       >
         <view class="calendar-widget__date">
-          <text class="calendar-widget__month">7月</text>
-          <text class="calendar-widget__day">17</text>
+          <text class="calendar-widget__month">{{ panel.latestMonthLabel }}</text>
+          <text class="calendar-widget__day">{{ panel.latestDayLabel }}</text>
         </view>
         <view class="calendar-widget__records">
           <view
-            v-for="record in weekRecords"
+            v-for="record in panel.weekdays"
             :key="record.key"
             class="calendar-record"
             :class="record.active ? 'calendar-record--active' : ''"
           >
-            <text class="calendar-record__day">{{ record.day }}</text>
+            <text class="calendar-record__day">{{ record.label }}</text>
             <view class="calendar-record__dot" :class="`calendar-record__dot--${record.tone}`" />
-            <text class="calendar-record__value">{{ record.value }}</text>
+            <text class="calendar-record__value">{{ record.valueLabel }}</text>
           </view>
         </view>
       </view>
@@ -200,11 +216,14 @@ function showWidgetTip(name: string) {
       <view
         class="widget-card trend-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('趋势')"
+        data-widget-name="趋势"
+        @tap="showWidgetTip"
       >
         <view class="trend-widget__header">
           <text>体重</text>
-          <text class="trend-widget__value">82.6<text class="trend-widget__unit"> 千克</text></text>
+          <text class="trend-widget__value">
+            {{ panel.currentWeightLabel }}<text v-if="panel.hasRecords" class="trend-widget__unit"> {{ panel.unitLabel }}</text>
+          </text>
         </view>
         <view class="trend-chart">
           <view class="trend-chart__grid trend-chart__grid--v1" />
@@ -212,53 +231,64 @@ function showWidgetTip(name: string) {
           <view class="trend-chart__grid trend-chart__grid--h1" />
           <view class="trend-chart__grid trend-chart__grid--h2" />
           <view
-            v-for="segment in trendSegments"
+            v-for="segment in panel.trendSegments"
             :key="segment.key"
             class="trend-chart__segment"
             :style="segment.style"
           />
+          <view
+            v-for="point in panel.trendPoints"
+            :key="point.key"
+            class="trend-chart__point"
+            :style="point.style"
+          />
+          <text v-if="panel.trendPoints.length === 0" class="trend-chart__empty">暂无趋势</text>
         </view>
         <view class="trend-widget__dates">
-          <text>3月25日</text>
-          <text>4月8日</text>
+          <text>{{ panel.trendStartLabel }}</text>
+          <text>{{ panel.trendEndLabel }}</text>
         </view>
       </view>
 
       <view
         class="widget-card reward-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('目标成就')"
+        data-widget-name="目标成就"
+        @tap="showWidgetTip"
       >
         <view class="reward-widget__top">
           <text class="reward-widget__emoji">🎒</text>
           <view class="reward-widget__change">
-            <view class="change-badge">↓</view>
-            <text>3.2 千克</text>
+            <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">{{ panel.deltaArrow }}</view>
+            <text>
+              {{ panel.deltaLabel }}<text v-if="panel.hasRecords"> {{ panel.unitLabel }}</text>
+            </text>
           </view>
         </view>
         <view class="reward-widget__bottom">
-          <text class="reward-widget__title">下一程更轻盈</text>
-          <text class="reward-widget__copy">坚持 21 天，距离目标又近一步</text>
+          <text class="reward-widget__title">{{ panel.rewardTitle }}</text>
+          <text class="reward-widget__copy">{{ panel.rewardCopy }}</text>
         </view>
       </view>
 
       <view
         class="widget-card bmi-widget"
         hover-class="widget-card--pressed"
-        @tap="showWidgetTip('BMI')"
+        data-widget-name="BMI"
+        @tap="showWidgetTip"
       >
         <text class="widget-eyebrow">BMI</text>
-        <text class="bmi-widget__value">26.1</text>
+        <text class="bmi-widget__value">{{ panel.bmiLabel }}</text>
         <view class="bmi-scale">
           <view class="bmi-scale__segment bmi-scale__segment--cyan" />
           <view class="bmi-scale__segment bmi-scale__segment--green" />
           <view class="bmi-scale__segment bmi-scale__segment--yellow" />
           <view class="bmi-scale__segment bmi-scale__segment--orange" />
-          <view class="bmi-scale__marker" />
+          <view v-if="panel.hasRecords" class="bmi-scale__marker" :style="panel.bmiMarkerStyle" />
         </view>
         <view class="bmi-widget__footer">
-          <text>超重</text>
-          <text class="bmi-widget__hint">建议关注近期趋势</text>
+          <text>{{ panel.bmiCategory }}</text>
+          <text class="bmi-widget__hint">{{ panel.bmiHint }}</text>
         </view>
       </view>
     </view>
@@ -273,6 +303,8 @@ function showWidgetTip(name: string) {
 
 .widget-intro {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding: 8rpx 40rpx 38rpx;
 }
@@ -282,6 +314,14 @@ function showWidgetTip(name: string) {
   font-size: 28rpx;
   font-weight: 500;
   line-height: 1.55;
+  text-align: center;
+}
+
+.widget-intro__status {
+  margin-top: 12rpx;
+  color: #999ba4;
+  font-size: 20rpx;
+  line-height: 1.4;
   text-align: center;
 }
 
@@ -373,6 +413,14 @@ function showWidgetTip(name: string) {
   background: #fff;
   box-shadow: 0 1rpx 5rpx rgba(0, 0, 0, 0.18);
   transform: translateY(-50%);
+}
+
+.compact-week__dot--blue {
+  background: #dff2ff;
+}
+
+.compact-week__dot--coral {
+  background: #ffdeda;
 }
 
 .compact-week__label--active {
@@ -537,7 +585,6 @@ function showWidgetTip(name: string) {
 
 .weight-gauge__marker {
   position: absolute;
-  left: 72rpx;
   top: 2rpx;
   width: 27rpx;
   height: 27rpx;
@@ -545,6 +592,7 @@ function showWidgetTip(name: string) {
   border-radius: 999rpx;
   background: #090a0d;
   box-shadow: 0 3rpx 8rpx rgba(0, 0, 0, 0.15);
+  transform: translateX(-50%);
 }
 
 .weight-gauge__min,
@@ -584,6 +632,14 @@ function showWidgetTip(name: string) {
   color: #fff;
   font-size: 24rpx;
   font-weight: 700;
+}
+
+.change-badge--up {
+  background: #f45d53;
+}
+
+.change-badge--flat {
+  background: #92949c;
 }
 
 .gauge-widget__days {
@@ -738,6 +794,10 @@ function showWidgetTip(name: string) {
   border-radius: 999rpx;
 }
 
+.calendar-record__dot--muted {
+  background: #d7d8dc;
+}
+
 .calendar-record__value {
   font-variant-numeric: tabular-nums;
 }
@@ -808,6 +868,28 @@ function showWidgetTip(name: string) {
   border-radius: 999rpx;
   background: #725cf3;
   transform-origin: left center;
+}
+
+.trend-chart__point {
+  position: absolute;
+  z-index: 2;
+  width: 8rpx;
+  height: 8rpx;
+  border: 3rpx solid #fff;
+  border-radius: 999rpx;
+  background: #725cf3;
+  box-shadow: 0 2rpx 6rpx rgba(73, 54, 190, 0.2);
+  transform: translate(-50%, -50%);
+}
+
+.trend-chart__empty {
+  position: absolute;
+  left: 0;
+  top: 63rpx;
+  width: 100%;
+  color: #b6b7bd;
+  font-size: 21rpx;
+  text-align: center;
 }
 
 .trend-widget__dates {
@@ -907,13 +989,13 @@ function showWidgetTip(name: string) {
 
 .bmi-scale__marker {
   position: absolute;
-  left: 67%;
   top: -9rpx;
   width: 10rpx;
   height: 40rpx;
   border-radius: 999rpx;
   background: #17181c;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.18);
+  transform: translateX(-50%);
 }
 
 .bmi-widget__footer {

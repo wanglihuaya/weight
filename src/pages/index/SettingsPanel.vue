@@ -2,6 +2,15 @@
 import { computed, onMounted } from 'wevu'
 
 import { cloudLoginPending, cloudLoginReady, cloudUser, ensureSilentLogin } from '@/services/auth'
+import type { UserSettingsPatch } from '@/services/settingsApi'
+import {
+  cloudUserSettings,
+  cloudUserSettingsError,
+  cloudUserSettingsLoading,
+  cloudUserSettingsSaving,
+  refreshUserSettings,
+  updateUserSettings,
+} from '@/services/settingsStore'
 import { cloudWeightRecords, refreshWeightRecords } from '@/services/weightStore'
 import { buildSettingsSections, buildSettingsSnapshot } from './pageModels'
 
@@ -9,7 +18,7 @@ defineComponentJson({
   styleIsolation: 'apply-shared',
 })
 
-const snapshot = computed(() => buildSettingsSnapshot(new Date()))
+const snapshot = computed(() => buildSettingsSnapshot(new Date(), cloudUserSettings.value))
 const sections = computed(() => buildSettingsSections(snapshot.value))
 const cloudConnectionLabel = computed(() => {
   if (cloudLoginPending.value) {
@@ -27,11 +36,142 @@ const maskedOpenid = computed(() => {
   return `${openid.slice(0, 6)}...${openid.slice(-4)}`
 })
 const recordCountLabel = computed(() => `${cloudWeightRecords.value.length} 条记录`)
+const settingsStatusLabel = computed(() => {
+  if (cloudUserSettingsSaving.value) {
+    return '保存中'
+  }
+  if (cloudUserSettingsLoading.value) {
+    return '同步中'
+  }
+  if (cloudUserSettingsError.value) {
+    return '同步失败'
+  }
+  return '已同步'
+})
 
 onMounted(() => {
   ensureSilentLogin().catch(() => {})
   refreshWeightRecords().catch(() => {})
+  refreshUserSettings().catch(() => {})
 })
+
+function showNumberPrompt(title: string, value: number, min: number, max: number) {
+  return new Promise<number | null>((resolve) => {
+    wx.showModal({
+      title,
+      content: value.toFixed(1),
+      editable: true,
+      placeholderText: `${min} - ${max}`,
+      success: (result) => {
+        if (!result.confirm) {
+          resolve(null)
+          return
+        }
+
+        const nextValue = Number(result.content)
+        if (!Number.isFinite(nextValue) || nextValue < min || nextValue > max) {
+          wx.showToast({
+            title: `请输入 ${min} - ${max}`,
+            icon: 'none',
+          })
+          resolve(null)
+          return
+        }
+
+        resolve(Math.round(nextValue * 10) / 10)
+      },
+      fail: () => resolve(null),
+    })
+  })
+}
+
+function showChoice(itemList: string[]) {
+  return new Promise<number | null>((resolve) => {
+    wx.showActionSheet({
+      itemList,
+      success: result => resolve(result.tapIndex),
+      fail: () => resolve(null),
+    })
+  })
+}
+
+async function persistSettings(patch: UserSettingsPatch) {
+  try {
+    await updateUserSettings(patch)
+    wx.showToast({
+      title: '设置已保存',
+      icon: 'success',
+    })
+  }
+  catch {
+    wx.showToast({
+      title: cloudUserSettingsError.value || '保存失败',
+      icon: 'none',
+    })
+  }
+}
+
+async function handleSettingTap(key: string) {
+  if (cloudUserSettingsSaving.value) {
+    return
+  }
+
+  const settings = cloudUserSettings.value
+
+  if (key === 'baseline' || key === 'goal') {
+    const field = key === 'baseline' ? 'baselineWeight' : 'targetWeight'
+    const title = key === 'baseline' ? '基准体重（千克）' : '目标体重（千克）'
+    const value = await showNumberPrompt(title, settings[field], 20, 300)
+    if (value !== null) {
+      await persistSettings({ [field]: value })
+    }
+    return
+  }
+
+  if (key === 'bmi') {
+    const heightCm = await showNumberPrompt('身高（厘米）', settings.heightCm, 100, 250)
+    if (heightCm !== null) {
+      await persistSettings({ heightCm })
+    }
+    return
+  }
+
+  if (key === 'unit') {
+    const choice = await showChoice(['千克（kg）', '磅（lb）'])
+    if (choice !== null) {
+      await persistSettings({ unit: choice === 0 ? 'kg' : 'lb' })
+    }
+    return
+  }
+
+  if (key === 'indicator') {
+    const choice = await showChoice(['经典', '紧凑'])
+    if (choice !== null) {
+      await persistSettings({ indicator: choice === 0 ? 'classic' : 'compact' })
+    }
+    return
+  }
+
+  if (key === 'week-start') {
+    const choice = await showChoice(['周一', '周日'])
+    if (choice !== null) {
+      await persistSettings({ weekStart: choice === 0 ? 'monday' : 'sunday' })
+    }
+    return
+  }
+
+  if (key === 'reminder') {
+    const choice = await showChoice(['关闭', `每天 ${settings.weightReminderTime}`])
+    if (choice !== null) {
+      await persistSettings({ weightReminderEnabled: choice === 1 })
+    }
+    return
+  }
+
+  if (key === 'milestone') {
+    await persistSettings({ milestoneReminderEnabled: !settings.milestoneReminderEnabled })
+  }
+}
 </script>
 
 <template>
@@ -84,6 +224,10 @@ onMounted(() => {
         <text class="text-[24rpx] text-[#626575]">体重记录</text>
         <text class="text-[24rpx] font-medium text-[#111217]">{{ recordCountLabel }}</text>
       </view>
+      <view class="mt-[12rpx] flex items-center justify-between rounded-[24rpx] bg-[#f6f7fb] px-[20rpx] py-[18rpx]">
+        <text class="text-[24rpx] text-[#626575]">个人设置</text>
+        <text class="text-[24rpx] font-medium text-[#111217]">{{ settingsStatusLabel }}</text>
+      </view>
     </view>
 
     <view v-for="section in sections" :key="section.title" class="mt-[34rpx]">
@@ -94,6 +238,7 @@ onMounted(() => {
           :key="item.key"
           class="flex items-center py-[26rpx]"
           :class="index !== section.items.length - 1 ? 'border-b border-[#ececf2]' : ''"
+          @tap="handleSettingTap(item.key)"
         >
           <view class="setting-icon-shell">
             <view v-if="item.iconKey === 'baseline'" class="icon-scale">

@@ -196,7 +196,7 @@ function onDraftWeightChange(payload: unknown) {
 </script>
 
 <template>
-  <view class="dashboard-shell pb-[292rpx] pt-[8rpx]">
+  <view class="dashboard-shell pb-[340rpx] pt-[8rpx]">
     <view class="hero-ruler">
       <WeightRuler
         :min="ENTRY_WEIGHT_MIN"
@@ -433,7 +433,7 @@ function onDraftWeightChange(payload: unknown) {
         <text class="sync-cloud">☁</text>
         <text>{{ syncTimeText }}</text>
       </view>
-      <view class="add-button" @tap="openEntryPopup">+</view>
+      <view v-if="!entryPopupVisible" class="add-button" hover-class="add-button-active" @tap="openEntryPopup">+</view>
     </view>
 
     <t-popup
@@ -516,15 +516,19 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .hero-ruler {
-  margin-top: 32rpx;
+  margin-top: 16rpx;
+  margin-right: -24rpx;
+  margin-left: -24rpx;
 }
 
 .summary-card {
-  margin-top: -8rpx;
-  border-radius: 42rpx;
-  background: rgba(255, 255, 255, 0.94);
-  padding: 28rpx 30rpx 24rpx;
-  box-shadow: 0 14rpx 40rpx rgba(17, 17, 21, 0.05);
+  position: relative;
+  z-index: 2;
+  margin-top: -78rpx;
+  border-radius: 46rpx;
+  background: #ffffff;
+  padding: 26rpx 30rpx 22rpx;
+  box-shadow: 0 18rpx 54rpx rgba(24, 29, 40, 0.055);
 }
 
 .summary-top {
@@ -547,24 +551,27 @@ function onDraftWeightChange(payload: unknown) {
 
 .summary-kicker {
   display: block;
-  font-size: 30rpx;
+  font-size: 28rpx;
   line-height: 1.2;
-  color: #b2b2b7;
+  color: #b8b9bf;
+  font-weight: 500;
 }
 
 .summary-number {
-  margin-top: 8rpx;
-  font-size: 64rpx;
+  margin-top: 10rpx;
+  font-size: 66rpx;
   line-height: 1;
-  font-weight: 600;
-  color: #111115;
+  font-weight: 500;
+  color: #090a0d;
   white-space: nowrap;
+  letter-spacing: -1.4rpx;
 }
 
 .summary-unit {
   margin-left: 8rpx;
-  font-size: 28rpx;
+  font-size: 27rpx;
   font-weight: 600;
+  letter-spacing: 0;
 }
 
 .summary-delta {
@@ -575,13 +582,13 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .summary-delta-badge {
-  height: 50rpx;
-  width: 50rpx;
+  height: 54rpx;
+  width: 54rpx;
   border-radius: 9999rpx;
-  background: #fb6257;
+  background: #f66158;
   color: #fff;
-  font-size: 28rpx;
-  line-height: 50rpx;
+  font-size: 32rpx;
+  line-height: 54rpx;
   text-align: center;
   font-weight: 700;
   flex-shrink: 0;
@@ -597,26 +604,27 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .summary-divider {
-  margin: 24rpx 0 20rpx;
+  margin: 18rpx 0 16rpx;
   height: 1px;
-  background: #e5e5e8;
+  background: #e1e2e6;
 }
 
 .summary-bottom {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
 }
 
 .metric-col {
+  flex: 1;
   min-width: 0;
 }
 
 .metric-label {
   display: block;
-  font-size: 26rpx;
+  font-size: 25rpx;
   line-height: 1.2;
-  color: #7f7f84;
+  color: #777980;
   font-weight: 600;
 }
 
@@ -714,7 +722,7 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .section-block {
-  margin-top: 28rpx;
+  margin-top: 48rpx;
 }
 
 .section-head {
@@ -725,10 +733,11 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .section-title {
-  font-size: 50rpx;
+  font-size: 43rpx;
   line-height: 1.16;
   font-weight: 700;
-  color: #101014;
+  color: #090a0d;
+  letter-spacing: -0.8rpx;
 }
 
 .section-actions {
@@ -739,12 +748,13 @@ function onDraftWeightChange(payload: unknown) {
 
 .stats-grid {
   margin-top: 16rpx;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
 }
 
 .stat-card {
+  width: calc(50% - 8rpx);
   border-radius: 30rpx;
   padding: 22rpx 22rpx 20rpx;
   box-shadow: 0 14rpx 32rpx rgba(17, 17, 21, 0.05);
@@ -829,59 +839,59 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .range-pill {
-  min-width: 124rpx;
-  padding: 10rpx 22rpx;
+  min-width: 120rpx;
+  padding: 12rpx 22rpx;
   border-radius: 9999rpx;
-  background: #dbdbe0;
-  color: #6e6e74;
+  background: #dedfe4;
+  color: #74767d;
   font-size: 26rpx;
   line-height: 1;
   text-align: center;
 }
 
 .round-arrow {
-  height: 58rpx;
-  width: 58rpx;
+  height: 60rpx;
+  width: 60rpx;
   border-radius: 9999rpx;
-  background: #dbdbe0;
-  color: #7a7a80;
+  background: #dedfe4;
+  color: #73757c;
   font-size: 42rpx;
-  line-height: 58rpx;
+  line-height: 60rpx;
   text-align: center;
 }
 
 .panel-card {
-  margin-top: 16rpx;
-  border-radius: 38rpx;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 14rpx 40rpx rgba(17, 17, 21, 0.045);
+  margin-top: 20rpx;
+  border-radius: 44rpx;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18rpx 52rpx rgba(24, 29, 40, 0.045);
 }
 
 .chart-card {
-  padding: 20rpx 18rpx 16rpx 20rpx;
+  padding: 26rpx 26rpx 22rpx;
 }
 
 .chart-frame {
   position: relative;
-  height: 440rpx;
+  height: 420rpx;
   overflow: visible;
-  border: 1px solid #e2e2e5;
-  border-radius: 10rpx;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 248, 250, 0.78) 100%);
+  border: 1px solid #e3e4e8;
+  border-radius: 8rpx;
+  background: #ffffff;
 }
 
 .chart-line-horizontal {
   position: absolute;
   left: 0;
   right: 0;
-  border-top: 1px solid #e7e7ea;
+  border-top: 1px solid #e6e7ea;
 }
 
 .chart-line-vertical {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px dashed #d9d9de;
+  border-left: 1px dashed #d5d7dc;
 }
 
 .chart-point {
@@ -925,7 +935,7 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .chart-x-ticks {
-  margin-top: 12rpx;
+  margin-top: 16rpx;
   display: flex;
   justify-content: space-between;
   padding: 0 8rpx;
@@ -935,7 +945,7 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .empty-card {
-  padding: 28rpx 30rpx;
+  padding: 32rpx 34rpx;
 }
 
 .empty-row {
@@ -1046,11 +1056,11 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .sync-block {
-  margin-top: 42rpx;
+  margin-top: 48rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20rpx;
+  gap: 0;
 }
 
 .sync-copy {
@@ -1067,19 +1077,34 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .add-button {
-  height: 144rpx;
-  width: 144rpx;
+  position: fixed;
+  left: 50%;
+  bottom: 164rpx;
+  z-index: 60;
+  height: 120rpx;
+  width: 120rpx;
   border-radius: 9999rpx;
-  background: #4f5057;
+  background: rgba(67, 68, 73, 0.96);
   color: #fff;
-  font-size: 92rpx;
-  line-height: 132rpx;
+  font-size: 76rpx;
+  line-height: 110rpx;
   text-align: center;
-  box-shadow: 0 16rpx 40rpx rgba(79, 80, 87, 0.22);
+  transform: translateX(-50%);
+  border: 1rpx solid rgba(255, 255, 255, 0.46);
+  box-shadow:
+    0 20rpx 50rpx rgba(45, 47, 54, 0.24),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.3);
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
+}
+
+.add-button-active {
+  transform: translateX(-50%) scale(0.94);
+  background: rgba(45, 46, 51, 0.98);
 }
 
 .entry-popup-shell {
-  padding: 0 14rpx max(env(safe-area-inset-bottom), 20rpx);
+  padding: 0 14rpx 20rpx;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 20rpx);
 }
 
 .entry-popup-card {
@@ -1163,7 +1188,6 @@ function onDraftWeightChange(payload: unknown) {
   background: #f3f4f6;
   padding: 20rpx 34rpx 18rpx;
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease-out;
-  will-change: transform, box-shadow, opacity;
 }
 
 .entry-readout-value {
@@ -1200,7 +1224,7 @@ function onDraftWeightChange(payload: unknown) {
   background: #f5f6f8;
   padding: 14rpx 18rpx;
   color: #8e9098;
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .entry-limit-chip-right {

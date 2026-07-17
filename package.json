@@ -9,6 +9,7 @@
     "dev": "weapp-vite dev",
     "dev:open": "weapp-vite dev -o",
     "build": "weapp-vite build",
+    "test": "node --experimental-strip-types --test src/services/*.test.mjs src/components/WeightDashboard/*.test.mjs src/pages/index/*.test.mjs tests/cloudfunctions/*.test.mjs",
     "typecheck": "vue-tsc --noEmit -p tsconfig.app.json",
     "open": "weapp-vite open",
     "postinstall": "weapp-tw patch"

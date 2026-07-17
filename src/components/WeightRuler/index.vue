@@ -134,12 +134,6 @@ const draw = () => {
     ctx.lineTo(x2, y2)
     ctx.stroke()
 
-    if (isMajor) {
-      ctx.fillStyle = `rgba(107, 114, 128, ${opacity})`
-      const textX = centerX + Math.sin(angle) * (arcRadius - tickMargin - tickLen - 15)
-      const textY = centerY - Math.cos(angle) * (arcRadius - tickMargin - tickLen - 15)
-      ctx.fillText(Math.floor(val).toString(), textX, textY)
-    }
   }
   ctx.restore()
 
@@ -151,13 +145,12 @@ const draw = () => {
   ctx.shadowOffsetY = 2
 
   ctx.fillStyle = '#FF5252'
-  const pointerHeight = 20
-  const pointerWidth = 8
+  const pointerHeight = 24
+  const pointerWidth = 12
   const pointerOffset = 20 // 向下移动
 
   ctx.beginPath()
-  ctx.moveTo(centerX - 2, pointerOffset)
-  ctx.lineTo(centerX + 2, pointerOffset)
+  ctx.moveTo(centerX, pointerOffset)
   ctx.lineTo(centerX + pointerWidth / 2, pointerOffset + pointerHeight)
   ctx.lineTo(centerX - pointerWidth / 2, pointerOffset + pointerHeight)
   ctx.closePath()
@@ -299,11 +292,11 @@ watch(() => props.modelValue, (val) => {
 
 .mask-left {
   left: 0;
-  background: linear-gradient(to right, #f3f4f6, transparent);
+  background: linear-gradient(to right, #f4f5f9 0%, rgba(244, 245, 249, 0) 100%);
 }
 
 .mask-right {
   right: 0;
-  background: linear-gradient(to left, #f3f4f6, transparent);
+  background: linear-gradient(to left, #f4f5f9 0%, rgba(244, 245, 249, 0) 100%);
 }
 </style>

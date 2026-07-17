@@ -40,6 +40,7 @@ export async function getWeightSummary() {
   await ensureSilentLogin()
   const result = await callCloudFunction<{ summary?: CloudWeightSummary }>('weight-records', {
     action: 'summary',
+    referenceDate: serializeRecordDate(new Date()),
   })
 
   return result.summary ?? null
@@ -48,8 +49,10 @@ export async function getWeightSummary() {
 export async function createWeightRecord(input: CreateWeightRecordInput) {
   await ensureSilentLogin()
   const recordedAt = input.recordedAt ?? new Date().toISOString()
+  const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const result = await callCloudFunction<{ record?: CloudWeightRecord }>('weight-records', {
     action: 'create',
+    requestId,
     weight: Number(input.weight.toFixed(1)),
     mode: input.mode,
     note: input.note?.trim() || '',

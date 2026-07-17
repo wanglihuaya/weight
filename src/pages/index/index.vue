@@ -25,7 +25,6 @@ import widgetIcon from '/tabbar/widgets.png'
 definePageJson({
   usingComponents: {
     "t-fab": "tdesign-miniprogram/fab/fab",
-    "t-icon": "tdesign-miniprogram/icon/icon"
   },
   navigationStyle: 'custom',
   navigationBarTextStyle: 'black',
@@ -80,7 +79,6 @@ const navbarGlassFallbackClass = computed(() => (
 let offsetX: any = null        // Tab 指示器偏移
 let containerScale: any = null  // Tab 容器缩放
 let indicatorScale: any = null  // 指示器缩放
-let navbarLeftScale: any = null // 导航栏左侧按钮缩放
 let scrollY: any = null        // 滚动位置同步
 let tabWidthPercent = 0
 let indicatorResetTimer: ReturnType<typeof setTimeout> | null = null
@@ -95,8 +93,6 @@ const navInfo = getNavbarInfo()
 const navbarHeightStyle = `padding-top: ${navInfo.paddingTop}px; height: calc(${navInfo.totalHeight}px); `
 const navbarTotalHeightStyle = `height: ${navInfo.totalHeight + 12}px; `
 const navbarTitleStyle = `margin-left: ${navInfo.centerLeft}px; width: ${navInfo.centerWidth}px; `
-const capsuleWidth = `width: ${navInfo.capsuleWidth}px; `
-
 // Tab 指示器兜底样式 (非 Worklet 环境)
 const indicatorStyleFallback = computed(() => {
   const index = tabs.findIndex(tab => tab.key === activeKey.value)
@@ -118,21 +114,6 @@ const handleScroll = (e: any) => {
   }
 }
 
-// 导航栏左侧按钮反馈
-const handleNavbarLeftTouchStart = () => {
-  if (useWorklet.value && navbarLeftScale) {
-    const { spring } = wx.worklet
-    navbarLeftScale.value = spring(1.24, { stiffness: 1000, damping: 40 }, () => { 'worklet' })
-  }
-}
-
-const handleNavbarLeftTouchEnd = () => {
-  if (useWorklet.value && navbarLeftScale) {
-    const { spring } = wx.worklet
-    navbarLeftScale.value = spring(1, { stiffness: 1000, damping: 40 }, () => { 'worklet' })
-  }
-}
-
 // Tab 容器缩放反馈
 const handleContainerTouchStart = () => {
   if (useWorklet.value && containerScale) {
@@ -149,8 +130,8 @@ const handleContainerTouchEnd = () => {
 }
 
 // Tab 切换逻辑
-const handleTabChange = (e: any) => {
-  const newKey = e?.currentTarget?.dataset.tabKey
+const handleTabChange = (event: WechatMiniprogram.TouchEvent) => {
+  const newKey = String(event.currentTarget.dataset.tabKey || '')
   if (!newKey || newKey === activeKey.value) return
 
   const index = tabs.findIndex(tab => tab.key === newKey)
@@ -204,18 +185,11 @@ onMounted(() => {
     offsetX = shared(0)
     containerScale = shared(1)
     indicatorScale = shared(1)
-    navbarLeftScale = shared(1)
     scrollY = shared(0)
     tabWidthPercent = 100 / tabs.length
 
     // 2. 注册 Worklet 动画样式
     if (pageInstance?.applyAnimatedStyle) {
-      // 导航栏左侧缩放
-      pageInstance.applyAnimatedStyle('.navbar-left-btn', () => {
-        'worklet'
-        return { transform: `scale(${navbarLeftScale.value})` }
-      })
-
       // 导航栏标题滚动联动
       pageInstance.applyAnimatedStyle('.navbar-title', () => {
         'worklet'
@@ -288,37 +262,31 @@ onUnmounted(() => {
       class="navbar-glass pointer-events-none absolute left-0 top-0 w-full"
       :class="navbarGlassFallbackClass"
     >
-      <view class="navbar-glass__soft absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__medium absolute left-0 top-0 w-full" />
-      <view class="navbar-glass__strong absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-00 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-01 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-02 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-03 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-04 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-05 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-06 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-07 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-08 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-09 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__blur navbar-glass__blur-10 absolute left-0 top-0 w-full" />
+      <view class="navbar-glass__veil absolute left-0 top-0 w-full h-full" />
       <view class="navbar-glass__tint absolute left-0 top-0 w-full h-full" />
       <view class="navbar-glass__highlight absolute left-0 top-0 w-full" />
     </view>
 
     <!-- 内容层 -->
-    <view class="navbar-content relative w-full h-full flex items-center justify-between">
-      <!-- 左侧操作按钮 -->
-      <view
-        class="navbar-left-btn shrink-0 grow-0 flex items-center justify-center rounded-full ml-3"
-        hover-class="navbar-left-btn--active"
-        :hover-stay-time="80"
-        @touchstart="handleNavbarLeftTouchStart"
-        @touchend="handleNavbarLeftTouchEnd"
-        @touchcancel="handleNavbarLeftTouchEnd"
-      >
-        <t-icon name="chevron-left" size="48rpx" color="#111827" data-name="chevron-left" />
-      </view>
-
+    <view class="navbar-content relative w-full h-full">
       <!-- 中心标题 (随滚动渐显) -->
       <view
-        class="navbar-title absolute w-full text-center pointer-events-none"
+        class="navbar-title-slot absolute w-full text-center pointer-events-none"
         :style="navbarTitleStyle"
       >
-        {{ navbarTitle }}
+        <view class="navbar-title">{{ navbarTitle }}</view>
       </view>
-
-      <!-- 右侧胶囊占位 -->
-      <view :style="capsuleWidth"></view>
     </view>
   </view>
 
@@ -333,14 +301,14 @@ onUnmounted(() => {
     :safe-area-inset-top="false"
     scroll-y
     enhanced
-    class="h-screen pt-[var(--status-bar-height)] w-full bg-gray-100 text-[#1c1c3c] px-4 box-border"
+    class="home-scroll h-screen pt-[var(--status-bar-height)] w-full px-4 box-border"
     @scroll="handleScroll"
   >
     <!-- 顶部避让空间 -->
     <view :style="navbarTotalHeightStyle" />
 
     <!-- 页面大标题 (随滚动渐隐) -->
-    <view class="page-title font-semibold text-lg">{{ navbarTitle }}</view>
+    <view class="page-title home-page-title">{{ navbarTitle }}</view>
 
     <!-- 内容列表容器 -->
     <view v-if="activeKey==='data'">
@@ -359,18 +327,17 @@ onUnmounted(() => {
     <!-- ========================================== -->
     <!-- 悬浮 TabBar (Floating Animted Tabs) -->
     <!-- ========================================== -->
-    <!-- <t-fab class="w-full !right-0 px-4 !bottom-[calc(env(safe-area-inset-bottom)+0rpx)]"> -->
-    <t-fab class="w-full !right-0 px-4 !bottom-[32rpx]">
+    <t-fab class="home-tabbar-fab w-full !right-0 px-4 !bottom-[26rpx]">
       <view
-        class="tabs-container rounded-full w-full bg-white/80 backdrop-blur-sm p-[12rpx] shadow-[0_8rpx_32rpx_rgba(0,0,0,0.08)] border border-white/50"
+        class="tabs-container home-tabbar w-full"
         @touchstart="handleContainerTouchStart"
         @touchend="handleContainerTouchEnd"
         @touchcancel="handleContainerTouchEnd"
       >
-        <view class="relative flex rounded-full">
+        <view class="home-tabbar-track relative flex rounded-full">
           <!-- 背景指示器 (Worklet 控制) -->
           <view
-            class="indicator-bg absolute bottom-0 left-0 top-0 z-[1] rounded-full bg-white/40 shadow-[0_4rpx_16rpx_rgba(24,94,224,0.15)] border border-white/60"
+            class="indicator-bg home-tabbar-indicator absolute bottom-0 left-0 top-0 z-[1] rounded-full"
             :style="indicatorStyleFallback"
           />
 
@@ -378,23 +345,20 @@ onUnmounted(() => {
           <view
             v-for="tab in tabs"
             :key="tab.key"
-            class="relative z-[2] flex flex-1 flex-col items-center justify-center py-[12rpx] transition-opacity duration-150"
+            class="home-tabbar-item relative z-[2] flex flex-1 flex-col items-center justify-center transition-opacity duration-150"
             hover-class="tab-hover"
             :data-tab-key="tab.key"
             @tap="handleTabChange"
           >
-            <!-- 图标与激活状态反馈 -->
+            <image
+              :src="tab.key === activeKey ? tab.activeIcon : tab.icon"
+              class="home-tabbar-icon"
+              mode="aspectFit"
+            />
 
-              <image
-                :src="tab.key === activeKey ? tab.activeIcon : tab.icon"
-                class="size-6"
-                mode="aspectFit"
-              ></image>
-
-            <!-- 标签文本 -->
             <view
-              class="text-[18rpx] transition-colors duration-150"
-              :class="activeKey === tab.key ? 'text-[#098BE9]' : 'text-[#19191D]'"
+              class="home-tabbar-label transition-colors duration-150"
+              :class="activeKey === tab.key ? 'text-[#1595f5]' : 'text-[#17181d]'"
             >
               {{ tab.label }}
             </view>
@@ -407,10 +371,10 @@ onUnmounted(() => {
 
 <style scoped>
 /* iOS 26 inspired Liquid Glass
- * Skyline 不支持 gradient mask，因此用三层不同高度/强度的 blur 形成连续渐隐。
+ * Skyline 不支持 gradient mask，因此用十层 5% 级差的 blur 形成细腻渐隐。
  */
 .navbar-glass {
-  height: calc(100% + 56rpx);
+  height: calc(100% + 68rpx);
   opacity: 0;
   transform: translateY(-4px);
   transition:
@@ -423,42 +387,91 @@ onUnmounted(() => {
   transform: translateY(0);
 }
 
-.navbar-glass__soft {
+.navbar-glass__blur {
+  background: rgba(249, 251, 255, 0.02);
+}
+
+.navbar-glass__blur-00 {
+  height: 112%;
+  opacity: 0.18;
+  backdrop-filter: blur(1px);
+}
+
+.navbar-glass__blur-01 {
+  height: 106%;
+  opacity: 0.24;
+  backdrop-filter: blur(2px);
+}
+
+.navbar-glass__blur-02 {
   height: 100%;
-  backdrop-filter: blur(6px);
+  opacity: 0.3;
+  backdrop-filter: blur(3px);
+}
+
+.navbar-glass__blur-03 {
+  height: 94%;
+  opacity: 0.36;
+  backdrop-filter: blur(5px);
+}
+
+.navbar-glass__blur-04 {
+  height: 88%;
+  opacity: 0.42;
+  backdrop-filter: blur(7px);
+}
+
+.navbar-glass__blur-05 {
+  height: 82%;
+  opacity: 0.44;
+  backdrop-filter: blur(10px);
+}
+
+.navbar-glass__blur-06 {
+  height: 76%;
+  opacity: 0.42;
+  backdrop-filter: blur(14px);
+}
+
+.navbar-glass__blur-07 {
+  height: 70%;
+  opacity: 0.39;
+  backdrop-filter: blur(18px);
+}
+
+.navbar-glass__blur-08 {
+  height: 64%;
+  opacity: 0.35;
+  backdrop-filter: blur(24px);
+}
+
+.navbar-glass__blur-09 {
+  height: 58%;
+  opacity: 0.31;
+  backdrop-filter: blur(31px);
+}
+
+.navbar-glass__blur-10 {
+  height: 52%;
+  opacity: 0.27;
+  backdrop-filter: blur(40px);
+}
+
+.navbar-glass__veil {
+  height: 112%;
   background: linear-gradient(
     to bottom,
-    rgba(248, 251, 255, 0.32) 0%,
-    rgba(248, 251, 255, 0.22) 54%,
-    rgba(248, 251, 255, 0.08) 78%,
+    rgba(252, 253, 255, 0.5) 0%,
+    rgba(252, 253, 255, 0.34) 46%,
+    rgba(250, 252, 255, 0.19) 64%,
+    rgba(248, 251, 255, 0.09) 78%,
+    rgba(248, 251, 255, 0.03) 90%,
     rgba(248, 251, 255, 0) 100%
   );
 }
 
-.navbar-glass__medium {
-  height: 88%;
-  backdrop-filter: blur(14px);
-  background: linear-gradient(
-    to bottom,
-    rgba(250, 252, 255, 0.44) 0%,
-    rgba(250, 252, 255, 0.3) 62%,
-    rgba(250, 252, 255, 0.06) 100%
-  );
-}
-
-.navbar-glass__strong {
-  height: 74%;
-  backdrop-filter: blur(26px);
-  background: linear-gradient(
-    to bottom,
-    rgba(252, 253, 255, 0.68) 0%,
-    rgba(252, 253, 255, 0.5) 70%,
-    rgba(252, 253, 255, 0.12) 100%
-  );
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.42);
-}
-
 .navbar-glass__tint {
+  height: 68%;
   background-image:
     linear-gradient(
       112deg,
@@ -486,53 +499,79 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-.navbar-left-btn {
-  width: 72rpx;
-  height: 72rpx;
-  margin-top: -4rpx;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.52);
-  backdrop-filter: blur(18px);
-  border: 1rpx solid rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 10rpx 30rpx rgba(31, 54, 86, 0.12),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.96),
-    inset 0 -1rpx 0 rgba(126, 152, 182, 0.16);
-  transition:
-    background-color 120ms ease-out,
-    box-shadow 120ms ease-out;
-}
-
-.navbar-left-btn::before {
-  content: '';
-  position: absolute;
-  top: 2rpx;
-  left: 10rpx;
-  width: 48rpx;
-  height: 18rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  pointer-events: none;
-}
-
-.navbar-left-btn--active {
-  background: rgba(235, 244, 252, 0.72);
-  box-shadow:
-    0 4rpx 14rpx rgba(31, 54, 86, 0.1),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
-}
-
 .navbar-title {
+  opacity: 0;
+  transform: translateY(10px);
   color: rgba(22, 28, 38, 0.92);
   font-size: 30rpx;
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.4rpx;
   text-shadow: 0 1rpx 0 rgba(255, 255, 255, 0.72);
+}
+
+.navbar-title-slot {
+  left: 0;
+  top: 50%;
+  height: 52rpx;
+  overflow: hidden;
+  transform: translateY(-50%);
+}
+
+.home-scroll {
+  color: #111218;
+  background: #f4f5f9;
+}
+
+.home-page-title {
+  margin-top: 44rpx;
+  margin-bottom: 4rpx;
+  color: #08090c;
+  font-size: 62rpx;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -1.8rpx;
+}
+
+.home-tabbar {
+  padding: 10rpx;
+  overflow: hidden;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(22px);
+  box-shadow:
+    0 22rpx 58rpx rgba(36, 42, 56, 0.14),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.96);
+}
+
+.home-tabbar-track {
+  min-height: 100rpx;
+}
+
+.home-tabbar-indicator {
+  border: 1rpx solid rgba(255, 255, 255, 0.86);
+  background: rgba(226, 228, 234, 0.84);
+  box-shadow:
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.8),
+    0 8rpx 24rpx rgba(31, 36, 48, 0.06);
+}
+
+.home-tabbar-item {
+  min-height: 100rpx;
+  padding: 8rpx 0 6rpx;
+}
+
+.home-tabbar-icon {
+  width: 50rpx;
+  height: 50rpx;
+}
+
+.home-tabbar-label {
+  margin-top: 2rpx;
+  font-size: 23rpx;
+  font-weight: 500;
+  line-height: 1.1;
 }
 
 /* 指示器备用动画 */
