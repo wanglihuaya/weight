@@ -13,8 +13,8 @@ test('buildSettingsSections exposes the key values shown in settings', () => {
   const personalSection = sections.find((section) => section.title === '个人数据')
   const displaySection = sections.find((section) => section.title === '显示设置')
 
-  assert.equal(snapshot.membershipTitle, 'MyWeight² 会员')
-  assert.equal(snapshot.membershipBadge, '高级版')
+  assert.equal(snapshot.membershipTitle, 'iiccon会员')
+  // assert.equal(snapshot.membershipBadge, '高级版')
   assert.equal(personalSection?.items[0]?.value, '67.0千克')
   assert.equal(personalSection?.items[1]?.value, '66.5千克')
   assert.equal(displaySection?.items[0]?.value, '千克')

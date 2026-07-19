@@ -50,9 +50,9 @@ const settingsStatusLabel = computed(() => {
 })
 
 onMounted(() => {
-  ensureSilentLogin().catch(() => {})
-  refreshWeightRecords().catch(() => {})
-  refreshUserSettings().catch(() => {})
+  ensureSilentLogin().catch(() => { })
+  refreshWeightRecords().catch(() => { })
+  refreshUserSettings().catch(() => { })
 })
 
 function showNumberPrompt(title: string, value: number, min: number, max: number) {
@@ -202,21 +202,22 @@ async function handleSettingTap(key: string) {
           </view>
         </view>
 
-        <text class="text-[56rpx] leading-none text-[#c8c9d1]">›</text>
+        <view class="i-lucide-chevron-right text-[44rpx] text-[#c8c9d1]" />
       </view>
     </view>
 
-    <view class="mt-[18rpx] rounded-[30rpx] bg-white px-[28rpx] py-[24rpx] shadow-[0_16rpx_40rpx_rgba(15,23,42,0.06)]">
+    <!-- <view class="mt-[18rpx] rounded-[30rpx] bg-white px-[28rpx] py-[24rpx] shadow-[0_16rpx_40rpx_rgba(15,23,42,0.06)]">
       <view class="flex items-center justify-between">
-        <view>
-          <view class="text-[30rpx] font-semibold text-[#12131a]">
-            微信云开发
-          </view>
-          <view class="mt-[8rpx] text-[24rpx] text-[#8f919c]">
-            {{ maskedOpenid }}
-          </view>
+        <view class="text-[30rpx] font-semibold text-[#12131a]">
+          微信云开发
         </view>
-        <view class="cloud-status-pill" :class="cloudLoginReady ? 'cloud-status-pill-active' : ''">
+        <view class="mt-[8rpx] text-[24rpx] text-[#8f919c]">
+          {{ maskedOpenid }}
+        </view>
+        <view
+          class="cloud-status-pill"
+          :class="cloudLoginReady ? 'cloud-status-pill-active' : ''"
+        >
           {{ cloudConnectionLabel }}
         </view>
       </view>
@@ -228,9 +229,13 @@ async function handleSettingTap(key: string) {
         <text class="text-[24rpx] text-[#626575]">个人设置</text>
         <text class="text-[24rpx] font-medium text-[#111217]">{{ settingsStatusLabel }}</text>
       </view>
-    </view>
+    </view> -->
 
-    <view v-for="section in sections" :key="section.title" class="mt-[34rpx]">
+    <view
+      v-for="section in sections"
+      :key="section.title"
+      class="mt-[34rpx]"
+    >
       <view class="section-title">{{ section.title }}</view>
       <view class="rounded-[34rpx] bg-white px-[28rpx] shadow-[0_16rpx_40rpx_rgba(15,23,42,0.06)]">
         <view
@@ -241,40 +246,71 @@ async function handleSettingTap(key: string) {
           @tap="handleSettingTap(item.key)"
         >
           <view class="setting-icon-shell">
-            <view v-if="item.iconKey === 'baseline'" class="icon-scale">
+            <view
+              v-if="item.iconKey === 'baseline'"
+              class="icon-scale"
+            >
               <view class="icon-scale-dial" />
               <view class="icon-scale-needle" />
             </view>
-            <view v-else-if="item.iconKey === 'goal'" class="icon-target">
+            <view
+              v-else-if="item.iconKey === 'goal'"
+              class="icon-target"
+            >
               <view class="icon-target-ring icon-target-ring-outer" />
               <view class="icon-target-ring icon-target-ring-middle" />
               <view class="icon-target-ring icon-target-ring-inner" />
             </view>
-            <view v-else-if="item.iconKey === 'bmi'" class="icon-label">BMI</view>
-            <view v-else-if="item.iconKey === 'unit'" class="icon-unit">
+            <view
+              v-else-if="item.iconKey === 'bmi'"
+              class="icon-label"
+            >BMI</view>
+            <view
+              v-else-if="item.iconKey === 'unit'"
+              class="icon-unit"
+            >
               <view class="icon-unit-bar" />
               <view class="icon-unit-bar icon-unit-bar-short" />
             </view>
-            <view v-else-if="item.iconKey === 'indicator'" class="icon-indicator">
+            <view
+              v-else-if="item.iconKey === 'indicator'"
+              class="icon-indicator"
+            >
               <view class="icon-indicator-dot icon-indicator-dot-solid" />
               <view class="icon-indicator-dot" />
             </view>
-            <view v-else-if="item.iconKey === 'week-start'" class="icon-calendar">
-              <view v-for="grid in 6" :key="grid" class="icon-calendar-grid" />
+            <view
+              v-else-if="item.iconKey === 'week-start'"
+              class="icon-calendar"
+            >
+              <view
+                v-for="grid in 6"
+                :key="grid"
+                class="icon-calendar-grid"
+              />
             </view>
-            <view v-else-if="item.iconKey === 'reminder'" class="icon-bell">
+            <view
+              v-else-if="item.iconKey === 'reminder'"
+              class="icon-bell"
+            >
               <view class="icon-bell-cap" />
             </view>
-            <view v-else class="icon-award">★</view>
+            <view
+              v-else
+              class="icon-award"
+            >★</view>
           </view>
 
           <text class="ml-[18rpx] flex-1 text-[30rpx] text-[#111217]">
             {{ item.label }}
           </text>
-          <text v-if="item.value" class="mr-[18rpx] text-[28rpx] text-[#989aa6]">
+          <text
+            v-if="item.value"
+            class="mr-[18rpx] text-[28rpx] text-[#989aa6]"
+          >
             {{ item.value }}
           </text>
-          <text class="text-[52rpx] leading-none text-[#c8c9d1]">›</text>
+          <view class="i-lucide-chevron-right text-[40rpx] text-[#c8c9d1]" />
         </view>
       </view>
     </view>

@@ -34,7 +34,7 @@ export interface WidgetPanelView {
   latestDayLabel: string
   primaryLabel: string
   deltaLabel: string
-  deltaArrow: '↓' | '↑' | '→'
+  deltaIcon: 'i-lucide-arrow-down' | 'i-lucide-arrow-up' | 'i-lucide-arrow-right'
   deltaTone: 'down' | 'up' | 'flat'
   trackedDays: number
   streakDays: number
@@ -292,7 +292,7 @@ export function buildWidgetPanelView(
     latestDayLabel: currentRecord ? `${latestDate.getDate()}` : '--',
     primaryLabel: currentRecord?.recordDate === serializeRecordDate(safeReferenceDate) ? '今天' : '最新',
     deltaLabel: currentRecord ? formatWeight(Math.abs(delta), factor) : '--',
-    deltaArrow: delta < 0 ? '↓' : delta > 0 ? '↑' : '→',
+    deltaIcon: delta < 0 ? 'i-lucide-arrow-down' : delta > 0 ? 'i-lucide-arrow-up' : 'i-lucide-arrow-right',
     deltaTone,
     trackedDays,
     streakDays: resolveStreakDays(dailyRecords, safeReferenceDate),

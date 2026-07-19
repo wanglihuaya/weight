@@ -14,12 +14,12 @@
   "t-button": "tdesign-miniprogram/button/button",
   "t-cell": "tdesign-miniprogram/cell/cell",
   "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
+  "t-date-time-picker": "tdesign-miniprogram/date-time-picker/date-time-picker",
   "t-dialog": "tdesign-miniprogram/dialog/dialog",
   "t-fab": "tdesign-miniprogram/fab/fab",
   "t-icon": "tdesign-miniprogram/icon/icon",
   "t-input": "tdesign-miniprogram/input/input",
   "t-notice-bar": "tdesign-miniprogram/notice-bar/notice-bar",
-  "t-popup": "tdesign-miniprogram/popup/popup",
   "t-progress": "tdesign-miniprogram/progress/progress",
   "t-qrcode": "tdesign-miniprogram/qrcode/qrcode",
   "t-radio": "tdesign-miniprogram/radio/radio",
@@ -39,5 +39,6 @@
   "TrendCard": "/components/TrendCard/index",
   "WeightDashboard": "/components/WeightDashboard/index",
   "WeightEntryRuler": "/components/WeightDashboard/WeightEntryRuler",
-  "WeightRuler": "/components/WeightRuler/index"
+  "WeightRuler": "/components/WeightRuler/index",
+  "WeightTrendChart": "/components/WeightDashboard/WeightTrendChart"
 }

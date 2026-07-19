@@ -86,6 +86,16 @@ function toneDotClass(tone: KpiTone) {
   }
   return 'bg-[#94a3b8]'
 }
+
+function toneIconClass(tone: KpiTone) {
+  if (tone === 'positive') {
+    return 'i-lucide-arrow-up'
+  }
+  if (tone === 'negative') {
+    return 'i-lucide-arrow-down'
+  }
+  return 'i-lucide-arrow-right'
+}
 </script>
 
 <template>
@@ -127,11 +137,9 @@ function toneDotClass(tone: KpiTone) {
                   {{ card.item.unit }}
                 </text>
               </view>
-              <view class="rounded-full px-[10rpx] py-[4rpx]" :class="toneBadgeClass(card.tone)">
-                <text class="text-[20rpx] font-semibold">
-                  {{ card.tone === 'positive' ? '↑' : card.tone === 'negative' ? '↓' : '→' }}
-                  {{ formatDelta(card.item.delta, card.item.unit ?? '') }}
-                </text>
+              <view class="flex items-center gap-[4rpx] rounded-full px-[10rpx] py-[4rpx]" :class="toneBadgeClass(card.tone)">
+                <view class="text-[20rpx]" :class="toneIconClass(card.tone)" />
+                <text class="text-[20rpx] font-semibold">{{ formatDelta(card.item.delta, card.item.unit ?? '') }}</text>
               </view>
             </view>
             <text v-if="card.item.footnote" class="mt-[6rpx] block text-[20rpx] text-[#8a8aa5]">

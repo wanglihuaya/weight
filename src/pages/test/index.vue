@@ -223,13 +223,20 @@ function handleClickBg(param: string) {
                   {{ card.item.unit }}
                 </text>
               </view>
-              <text
-                class="text-[20rpx] font-semibold"
+              <view
+                class="flex items-center gap-[4rpx] text-[20rpx] font-semibold"
                 :class="card.tone === 'positive' ? 'text-[#1b7a3a]' : card.tone === 'negative' ? 'text-[#b42318]' : 'text-[#64748b]'"
               >
-                {{ card.tone === 'positive' ? '↑' : card.tone === 'negative' ? '↓' : '→' }}
-                {{ card.item.delta ?? '--' }}
-              </text>
+                <view
+                  class="text-[20rpx]"
+                  :class="card.tone === 'positive'
+                    ? 'i-lucide-arrow-up'
+                    : card.tone === 'negative'
+                      ? 'i-lucide-arrow-down'
+                      : 'i-lucide-arrow-right'"
+                />
+                <text>{{ card.item.delta ?? '--' }}</text>
+              </view>
             </view>
             <text v-if="card.item.footnote" class="mt-[6rpx] block text-[20rpx] text-[#7a7aa0]">
               {{ card.item.footnote }}

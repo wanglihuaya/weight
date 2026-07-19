@@ -23,6 +23,7 @@ function normalizeRecord(record) {
     recordedAt: record.recordedAt,
     mode: record.mode || 'now',
     note: record.note || '',
+    photoFileIds: Array.isArray(record.photoFileIds) ? record.photoFileIds : [],
   }
 }
 

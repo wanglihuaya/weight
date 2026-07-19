@@ -124,7 +124,7 @@ function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
         data-widget-name="体重变化"
         @tap="showWidgetTip"
       >
-        <text class="compact-change__arrow">{{ panel.deltaArrow }}</text>
+        <view class="compact-change__arrow" :class="panel.deltaIcon" />
         <text class="compact-change__value">
           {{ panel.deltaLabel }}<text v-if="panel.hasRecords" class="compact-change__unit">{{ panel.unitLabel }}</text>
         </text>
@@ -153,7 +153,9 @@ function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
           <text class="weight-gauge__max">{{ panel.gaugeMaxLabel }}</text>
         </view>
         <view class="gauge-widget__change">
-          <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">{{ panel.deltaArrow }}</view>
+          <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">
+            <view class="change-badge__icon" :class="panel.deltaIcon" />
+          </view>
           <text>
             {{ panel.deltaLabel }}<text v-if="panel.hasRecords"> {{ panel.unitLabel }}</text>
           </text>
@@ -259,7 +261,9 @@ function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
         <view class="reward-widget__top">
           <text class="reward-widget__emoji">🎒</text>
           <view class="reward-widget__change">
-            <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">{{ panel.deltaArrow }}</view>
+            <view class="change-badge" :class="`change-badge--${panel.deltaTone}`">
+              <view class="change-badge__icon" :class="panel.deltaIcon" />
+            </view>
             <text>
               {{ panel.deltaLabel }}<text v-if="panel.hasRecords"> {{ panel.unitLabel }}</text>
             </text>
@@ -476,7 +480,6 @@ function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
 .compact-change__arrow {
   color: #fff;
   font-size: 34rpx;
-  line-height: 0.8;
 }
 
 .compact-change__value {
@@ -630,8 +633,10 @@ function showWidgetTip(event: WechatMiniprogram.TouchEvent) {
   border-radius: 999rpx;
   background: #249df2;
   color: #fff;
-  font-size: 24rpx;
-  font-weight: 700;
+}
+
+.change-badge__icon {
+  font-size: 21rpx;
 }
 
 .change-badge--up {

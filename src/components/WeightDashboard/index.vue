@@ -2,10 +2,31 @@
 import { computed, onMounted, ref, watch } from 'wevu'
 
 import WeightRuler from '@/components/WeightRuler/index.vue'
-import { cloudWeightRecordSaving, cloudWeightRecordsLoading, cloudWeightStoreError, dashboardView, refreshWeightRecords, saveWeightRecord } from '@/services/weightStore'
+import {
+  cloudUserSettings,
+  cloudUserSettingsReady,
+  refreshUserSettings,
+} from '@/services/settingsStore'
+import { chooseWeightPhoto, uploadWeightPhotos, type WeightPhotoSelection } from '@/services/weightMedia'
+import {
+  cloudWeightLastSyncedAt,
+  cloudWeightRecords,
+  cloudWeightRecordSaving,
+  cloudWeightRecordsLoading,
+  cloudWeightStoreError,
+  dashboardView,
+  refreshWeightRecords,
+  saveWeightRecord,
+} from '@/services/weightStore'
 
 import { buildWeightEntryModes, buildWeightEntryReadoutMotion, resolveWeightEntryPayloadValue } from './weightEntry'
 import WeightEntryRuler from './WeightEntryRuler.vue'
+import {
+  buildWeightTrendChartModel,
+  WEIGHT_TREND_RANGES,
+  type WeightTrendRange,
+} from './weightTrend'
+import WeightTrendChart from './WeightTrendChart.vue'
 
 const ENTRY_WEIGHT_MIN = 30
 const ENTRY_WEIGHT_MAX = 150
@@ -23,18 +44,59 @@ const draftWeight = ref(weightValue.value)
 const entryMotionOffset = ref(0)
 const entryAtMin = ref(false)
 const entryAtMax = ref(false)
+const entryRecordedAt = ref(Date.now())
+const entryTimePickerVisible = ref(false)
+const entryPhoto = ref<WeightPhotoSelection | null>(null)
+const entryPhotoChoosing = ref(false)
+const entryPhotoUploading = ref(false)
+const entryNote = ref('')
+const entryPickerStart = new Date(2016, 0, 1).getTime()
+const entryPickerEnd = ref(Date.now())
+const entryPickerMode = ['date', 'minute']
+const entryPickerPopupProps = {
+  zIndex: 13000,
+}
 
 const dashboard = computed(() => dashboardView.value)
 const hasRecords = computed(() => dashboard.value.hasRecords)
 const summary = computed(() => dashboard.value.summary)
 const todayRecord = computed(() => dashboard.value.todayRecord)
 const recentRecords = computed(() => dashboard.value.recentRecords)
-const chart = computed(() => dashboard.value.chart)
+const selectedTrendRange = ref<WeightTrendRange>('30d')
+const chartReferenceDate = computed(() => (
+  cloudWeightLastSyncedAt.value
+    ? new Date(cloudWeightLastSyncedAt.value)
+    : new Date()
+))
+const chart = computed(() => buildWeightTrendChartModel(
+  cloudWeightRecords.value,
+  chartReferenceDate.value,
+  selectedTrendRange.value,
+))
+const targetWeight = computed(() => (
+  cloudUserSettings.value.targetWeight
+))
 
 const selectedEntryMode = computed(() => {
   return entryModes.find((mode) => mode.key === entryModeKey.value) ?? entryModes[0]
 })
 const entryDisplayWeight = computed(() => draftWeight.value.toFixed(1))
+const entryRecordedAtLabel = computed(() => {
+  const date = new Date(entryRecordedAt.value)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${month}月${day}日 ${hours}:${minutes}`
+})
+const entrySaveBusy = computed(() => cloudWeightRecordSaving.value || entryPhotoUploading.value)
+const entrySubmitText = computed(() => {
+  if (entryPhotoUploading.value) {
+    return '正在上传照片…'
+  }
+
+  return cloudWeightRecordSaving.value ? '保存中…' : '记录体重'
+})
 const entryReadoutMotion = computed(() => buildWeightEntryReadoutMotion(entryMotionOffset.value))
 const entryReadoutCardStyle = computed(() => {
   const motion = entryReadoutMotion.value
@@ -63,19 +125,17 @@ const bmiMarkerPercent = computed(() => {
   return Math.min(100, Math.max(0, ratio * 100))
 })
 
-const chartYPositions = [0, 50, 100]
-const chartVerticalLines = [25, 50, 75]
-const trendDirection = computed(() => {
+const trendDirectionIcon = computed(() => {
   if (!hasRecords.value) {
-    return '↑'
+    return 'i-lucide-arrow-up'
   }
   if (summary.value.deltaFromStart < 0) {
-    return '↓'
+    return 'i-lucide-arrow-down'
   }
   if (summary.value.deltaFromStart === 0) {
-    return '→'
+    return 'i-lucide-arrow-right'
   }
-  return '↑'
+  return 'i-lucide-arrow-up'
 })
 const trendDeltaText = computed(() => {
   return hasRecords.value ? Math.abs(summary.value.deltaFromStart).toFixed(1) : '--'
@@ -106,14 +166,29 @@ onMounted(() => {
       icon: 'none',
     })
   })
+  if (!cloudUserSettingsReady.value) {
+    refreshUserSettings().catch(() => undefined)
+  }
 })
-
-function pointStyle(xPercent: number, yPercent: number) {
-  return `left:${xPercent}%;top:${yPercent}%;`
-}
 
 function markerStyle(percent: number) {
   return `left:${percent}%;`
+}
+
+function selectTrendRange(range: WeightTrendRange) {
+  if (range === selectedTrendRange.value) {
+    return
+  }
+  selectedTrendRange.value = range
+}
+
+function selectTrendRangeFromEvent(event: WechatMiniprogram.TouchEvent) {
+  const range = String(event.currentTarget.dataset.trendRange ?? '')
+  if (!WEIGHT_TREND_RANGES.some(option => option.key === range)) {
+    return
+  }
+
+  selectTrendRange(range as WeightTrendRange)
 }
 
 function onWeightChange(val: number) {
@@ -123,6 +198,10 @@ function onWeightChange(val: number) {
 function openEntryPopup() {
   draftWeight.value = Number(latestWeight.value.toFixed(1))
   entryModeKey.value = entryModes[0]?.key ?? 'now'
+  entryRecordedAt.value = Date.now()
+  entryTimePickerVisible.value = false
+  entryPhoto.value = null
+  entryNote.value = ''
   entryMotionOffset.value = 0
   entryAtMin.value = false
   entryAtMax.value = false
@@ -130,32 +209,120 @@ function openEntryPopup() {
 }
 
 function closeEntryPopup() {
+  if (entrySaveBusy.value) {
+    return
+  }
+
   entryMotionOffset.value = 0
   entryAtMin.value = false
   entryAtMax.value = false
+  entryTimePickerVisible.value = false
   entryPopupVisible.value = false
 }
 
 function blockEntryOverlayTouchMove() {}
 
-function selectEntryMode(modeKey: string) {
+async function selectEntryMode(modeKey: string) {
   entryModeKey.value = modeKey as typeof entryModeKey.value
-}
 
-function selectEntryModeFromEvent(event: WechatMiniprogram.TouchEvent) {
-  selectEntryMode(String(event.currentTarget.dataset.modeKey || 'now'))
-}
-
-async function saveEntryWeight() {
-  if (cloudWeightRecordSaving.value) {
+  if (modeKey === 'now') {
+    entryPickerEnd.value = Date.now()
+    entryTimePickerVisible.value = true
     return
   }
 
+  if (modeKey === 'photo') {
+    await chooseEntryPhoto()
+  }
+}
+
+function selectEntryModeFromEvent(event: WechatMiniprogram.TouchEvent) {
+  selectEntryMode(String(event.currentTarget.dataset.modeKey || 'now')).catch(() => {})
+}
+
+function isMediaPickerCancel(error: unknown) {
+  const message = String((error as { errMsg?: string })?.errMsg ?? '')
+  return message.toLowerCase().includes('cancel')
+}
+
+async function chooseEntryPhoto() {
+  if (entryPhotoChoosing.value || entrySaveBusy.value) {
+    return
+  }
+
+  entryPhotoChoosing.value = true
   try {
+    const photo = await chooseWeightPhoto()
+    if (photo.size > 10 * 1024 * 1024) {
+      wx.showToast({
+        title: '照片不能超过 10MB',
+        icon: 'none',
+      })
+      return
+    }
+    entryPhoto.value = photo
+  }
+  catch (error) {
+    if (!isMediaPickerCancel(error)) {
+      wx.showToast({
+        title: '照片选择失败',
+        icon: 'none',
+      })
+    }
+  }
+  finally {
+    entryPhotoChoosing.value = false
+  }
+}
+
+function removeEntryPhoto() {
+  if (!entrySaveBusy.value) {
+    entryPhoto.value = null
+  }
+}
+
+function openEntryTimePicker() {
+  if (!entrySaveBusy.value) {
+    entryModeKey.value = 'now'
+    entryPickerEnd.value = Date.now()
+    entryTimePickerVisible.value = true
+  }
+}
+
+function closeEntryTimePicker() {
+  entryTimePickerVisible.value = false
+}
+
+function confirmEntryTime(event: WechatMiniprogram.CustomEvent<{ value?: number | string }>) {
+  const value = Number(event.detail?.value)
+  if (Number.isFinite(value)) {
+    entryRecordedAt.value = Math.min(Date.now(), value)
+  }
+  entryTimePickerVisible.value = false
+}
+
+function handleEntryNoteInput(event: WechatMiniprogram.Input) {
+  entryNote.value = String(event.detail.value ?? '').slice(0, 200)
+}
+
+async function saveEntryWeight() {
+  if (entrySaveBusy.value) {
+    return
+  }
+
+  entryPhotoUploading.value = !!entryPhoto.value
+  try {
+    const photoFileIds = entryPhoto.value
+      ? await uploadWeightPhotos([entryPhoto.value.tempFilePath])
+      : []
     await saveWeightRecord({
       weight: Number(draftWeight.value.toFixed(1)),
       mode: entryModeKey.value,
+      recordedAt: new Date(entryRecordedAt.value).toISOString(),
+      note: entryNote.value,
+      photoFileIds,
     })
+    entryPhotoUploading.value = false
     closeEntryPopup()
     wx.showToast({
       title: '记录成功',
@@ -167,6 +334,9 @@ async function saveEntryWeight() {
       title: cloudWeightStoreError.value || '保存失败',
       icon: 'none',
     })
+  }
+  finally {
+    entryPhotoUploading.value = false
   }
 }
 
@@ -215,8 +385,9 @@ function onDraftWeightChange(payload: unknown) {
           <text class="summary-kicker">{{ hasRecords ? `${summary.totalDays}天` : '暂无记录' }}</text>
           <view class="summary-delta">
             <view v-if="hasRecords" class="summary-delta-badge">
-              {{ trendDirection }}
+              <view class="summary-delta-icon" :class="trendDirectionIcon" />
             </view>
+
             <view class="summary-number">
               {{ trendDeltaText }}
               <text v-if="hasRecords" class="summary-unit">千克</text>
@@ -224,7 +395,7 @@ function onDraftWeightChange(payload: unknown) {
           </view>
         </view>
 
-        <text class="summary-arrow">›</text>
+        <view class="summary-arrow i-lucide-chevron-right" />
       </view>
 
       <view class="summary-divider" />
@@ -310,52 +481,31 @@ function onDraftWeightChange(payload: unknown) {
 
     <view class="section-block">
       <view class="section-head">
-        <text class="section-title">图表</text>
-        <view class="section-actions">
-          <view class="range-pill">{{ chart.rangeLabel }}</view>
-          <view class="round-arrow">›</view>
+        <view>
+          <text class="section-title">图表</text>
+          <!-- <text class="chart-section-subtitle">触摸曲线，查看每次变化</text> -->
+        </view>
+        <view class="trend-range-control">
+          <view
+            v-for="option in WEIGHT_TREND_RANGES"
+            :key="option.key"
+            :data-trend-range="option.key"
+            class="trend-range-option"
+            :class="selectedTrendRange === option.key ? 'trend-range-option-active' : ''"
+            @tap.stop="selectTrendRangeFromEvent"
+          >
+            {{ option.label }}
+          </view>
         </view>
       </view>
 
       <view class="panel-card chart-card">
-        <view class="chart-frame">
-          <view
-            v-for="(top, index) in chartYPositions"
-            :key="'h-' + index"
-            class="chart-line-horizontal"
-            :style="`top:${top}%;`"
-          />
-          <view
-            v-for="line in chartVerticalLines"
-            :key="'v-' + line"
-            class="chart-line-vertical"
-            :style="`left:${line}%;`"
-          />
-
-          <view
-            v-for="point in chart.points"
-            :key="point.key"
-            class="chart-point"
-            :class="point.highlighted ? 'chart-point-active' : ''"
-            :style="pointStyle(point.xPercent, point.yPercent)"
-          />
-
-          <view v-if="chart.points.length === 0" class="chart-empty-state">
-            暂无图表数据
-          </view>
-
-          <view class="chart-y-ticks">
-            <text v-for="(tick, index) in chart.yTicks" :key="'tick-' + index">
-              {{ tick.toFixed(0) }}
-            </text>
-          </view>
-        </view>
-
-        <view class="chart-x-ticks">
-          <text v-for="label in chart.xLabels" :key="label">
-            {{ label }}
-          </text>
-        </view>
+        <WeightTrendChart
+          id="weight-trend-chart"
+          :model="chart"
+          :show-target="cloudUserSettingsReady"
+          :target-weight="targetWeight"
+        />
       </view>
     </view>
 
@@ -375,9 +525,13 @@ function onDraftWeightChange(payload: unknown) {
           </view>
 
           <view class="record-side">
-            <text class="record-delta" :class="todayRecord.delta >= 0 ? 'record-delta-up' : 'record-delta-down'">
-              {{ todayRecord.delta >= 0 ? '↑' : '↓' }}{{ Math.abs(todayRecord.delta).toFixed(1) }}千克
-            </text>
+            <view class="record-delta" :class="todayRecord.delta >= 0 ? 'record-delta-up' : 'record-delta-down'">
+              <view
+                class="record-delta-icon"
+                :class="todayRecord.delta >= 0 ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down'"
+              />
+              <text>{{ Math.abs(todayRecord.delta).toFixed(1) }}千克</text>
+            </view>
             <text class="record-date">{{ todayRecord.dateText }}</text>
           </view>
         </view>
@@ -413,9 +567,13 @@ function onDraftWeightChange(payload: unknown) {
           </view>
 
           <view class="record-side">
-            <text class="record-delta" :class="record.delta >= 0 ? 'record-delta-up' : 'record-delta-down'">
-              {{ record.delta >= 0 ? '↑' : '↓' }}{{ Math.abs(record.delta).toFixed(1) }}千克
-            </text>
+            <view class="record-delta" :class="record.delta >= 0 ? 'record-delta-up' : 'record-delta-down'">
+              <view
+                class="record-delta-icon"
+                :class="record.delta >= 0 ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down'"
+              />
+              <text>{{ Math.abs(record.delta).toFixed(1) }}千克</text>
+            </view>
             <text class="record-date">{{ record.dateText }}</text>
           </view>
         </view>
@@ -459,7 +617,61 @@ function onDraftWeightChange(payload: unknown) {
             </view>
           </view>
 
-          <view class="entry-readout">
+          <view class="entry-record-time" hover-class="entry-record-time-active" @tap="openEntryTimePicker">
+            <view class="entry-record-time-icon">
+              <t-icon name="time" size="26rpx" />
+            </view>
+            <text class="entry-record-time-label">记录时间</text>
+            <text class="entry-record-time-value">{{ entryRecordedAtLabel }}</text>
+            <t-icon name="chevron-right" size="24rpx" />
+          </view>
+
+          <view v-if="entryModeKey === 'photo'" class="entry-photo-panel">
+            <view v-if="entryPhoto" class="entry-photo-preview-wrap">
+              <image class="entry-photo-preview" :src="entryPhoto.tempFilePath" mode="aspectFill" />
+              <view class="entry-photo-actions">
+                <view class="entry-photo-action entry-photo-action-primary" hover-class="entry-photo-action-active" @tap="chooseEntryPhoto">
+                  <t-icon name="refresh" size="24rpx" />
+                  <text>重新选择</text>
+                </view>
+                <view class="entry-photo-action entry-photo-action-danger" hover-class="entry-photo-action-active" @tap="removeEntryPhoto">
+                  <t-icon name="delete" size="24rpx" />
+                  <text>移除</text>
+                </view>
+              </view>
+            </view>
+            <view v-else class="entry-photo-empty" hover-class="entry-photo-empty-active" @tap="chooseEntryPhoto">
+              <view class="entry-photo-empty-icon">
+                <t-icon name="camera" size="34rpx" />
+              </view>
+              <view class="entry-photo-empty-copy">
+                <text class="entry-photo-empty-title">{{ entryPhotoChoosing ? '正在打开相机…' : '拍照或从相册选择' }}</text>
+                <text class="entry-photo-empty-subtitle">照片会与本次体重一起保存</text>
+              </view>
+            </view>
+          </view>
+
+          <view v-if="entryModeKey === 'note'" class="entry-note-panel">
+            <view class="entry-note-head">
+              <text>记录此刻的状态</text>
+              <view v-if="entryPhoto" class="entry-note-photo-badge">
+                <t-icon name="image" size="22rpx" />
+                <text>已添加照片</text>
+              </view>
+            </view>
+            <textarea
+              class="entry-note-textarea"
+              :value="entryNote"
+              :maxlength="200"
+              :show-confirm-bar="false"
+              placeholder="例如：晨起空腹、运动后、今天状态很好…"
+              placeholder-class="entry-note-placeholder"
+              @input="handleEntryNoteInput"
+            />
+            <text class="entry-note-counter">{{ entryNote.length }}/200</text>
+          </view>
+
+          <view class="entry-readout" :class="entryModeKey === 'now' ? '' : 'entry-readout-compact'">
             <view class="entry-readout-card" :style="entryReadoutCardStyle">
               <text class="entry-readout-value">{{ entryDisplayWeight }}</text>
               <text class="entry-readout-unit">千克</text>
@@ -497,11 +709,26 @@ function onDraftWeightChange(payload: unknown) {
             {{ selectedEntryMode?.actionText }}
           </view>
 
-          <view class="entry-submit" :class="cloudWeightRecordSaving ? 'entry-submit-disabled' : ''" @tap="saveEntryWeight">
-            {{ cloudWeightRecordSaving ? '保存中…' : '记录体重' }}
+          <view class="entry-submit" :class="entrySaveBusy ? 'entry-submit-disabled' : ''" @tap="saveEntryWeight">
+            {{ entrySubmitText }}
           </view>
         </view>
       </view>
+
+      <t-date-time-picker
+        :visible="entryTimePickerVisible"
+        :value="entryRecordedAt"
+        :start="entryPickerStart"
+        :end="entryPickerEnd"
+        :mode="entryPickerMode"
+        :popup-props="entryPickerPopupProps"
+        title="选择记录时间"
+        confirm-btn="完成"
+        cancel-btn="取消"
+        @confirm="confirmEntryTime"
+        @cancel="closeEntryTimePicker"
+        @close="closeEntryTimePicker"
+      />
     </view>
   </view>
 </template>
@@ -519,8 +746,8 @@ function onDraftWeightChange(payload: unknown) {
 
 .summary-card {
   position: relative;
-  z-index: 2;
-  margin-top: -78rpx;
+  z-index: 5;
+  margin-top: -28rpx;
   border-radius: 46rpx;
   background: #ffffff;
   padding: 26rpx 30rpx 22rpx;
@@ -578,16 +805,19 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .summary-delta-badge {
+  display: flex;
   height: 54rpx;
   width: 54rpx;
+  align-items: center;
+  justify-content: center;
   border-radius: 9999rpx;
   background: #f66158;
   color: #fff;
-  font-size: 32rpx;
-  line-height: 54rpx;
-  text-align: center;
-  font-weight: 700;
   flex-shrink: 0;
+}
+
+.summary-delta-icon {
+  font-size: 30rpx;
 }
 
 .summary-arrow {
@@ -595,7 +825,7 @@ function onDraftWeightChange(payload: unknown) {
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 58rpx;
+  font-size: 48rpx;
   color: #c6c6cb;
 }
 
@@ -834,28 +1064,6 @@ function onDraftWeightChange(payload: unknown) {
   text-align: right;
 }
 
-.range-pill {
-  min-width: 120rpx;
-  padding: 12rpx 22rpx;
-  border-radius: 9999rpx;
-  background: #dedfe4;
-  color: #74767d;
-  font-size: 26rpx;
-  line-height: 1;
-  text-align: center;
-}
-
-.round-arrow {
-  height: 60rpx;
-  width: 60rpx;
-  border-radius: 9999rpx;
-  background: #dedfe4;
-  color: #73757c;
-  font-size: 42rpx;
-  line-height: 60rpx;
-  text-align: center;
-}
-
 .panel-card {
   margin-top: 20rpx;
   border-radius: 44rpx;
@@ -864,80 +1072,43 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .chart-card {
-  padding: 26rpx 26rpx 22rpx;
+  padding: 24rpx;
 }
 
-.chart-frame {
-  position: relative;
-  height: 420rpx;
-  overflow: visible;
-  border: 1px solid #e3e4e8;
-  border-radius: 8rpx;
+.chart-section-subtitle {
+  display: block;
+  margin-top: 7rpx;
+  color: #9a9fa8;
+  font-size: 21rpx;
+  line-height: 1;
+}
+
+.trend-range-control {
+  display: flex;
+  align-items: center;
+  padding: 5rpx;
+  border: 1rpx solid rgba(64, 76, 91, 0.06);
+  border-radius: 999rpx;
+  background: #eceff3;
+}
+
+.trend-range-option {
+  min-width: 62rpx;
+  padding: 10rpx 10rpx;
+  border-radius: 999rpx;
+  color: #858b95;
+  font-size: 22rpx;
+  font-weight: 550;
+  line-height: 1;
+  text-align: center;
+  transition: color 160ms ease-out, background-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.trend-range-option-active {
   background: #ffffff;
-}
-
-.chart-line-horizontal {
-  position: absolute;
-  left: 0;
-  right: 0;
-  border-top: 1px solid #e6e7ea;
-}
-
-.chart-line-vertical {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-left: 1px dashed #d5d7dc;
-}
-
-.chart-point {
-  position: absolute;
-  height: 16rpx;
-  width: 16rpx;
-  margin-left: -8rpx;
-  margin-top: -8rpx;
-  border-radius: 9999rpx;
-  background: #eff7ff;
-  border: 4rpx solid #8bc8f0;
-}
-
-.chart-point-active {
-  background: #d8efff;
-  border-color: #2390e8;
-  box-shadow: 0 0 0 8rpx rgba(35, 144, 232, 0.12);
-}
-
-.chart-empty-state {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  color: #b2b4bc;
-  font-size: 28rpx;
-}
-
-.chart-y-ticks {
-  pointer-events: none;
-  position: absolute;
-  right: -54rpx;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  color: #9a9aa1;
-  font-size: 28rpx;
-  line-height: 1;
-}
-
-.chart-x-ticks {
-  margin-top: 16rpx;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 8rpx;
-  color: #97979e;
-  font-size: 28rpx;
-  line-height: 1;
+  box-shadow: 0 3rpx 10rpx rgba(38, 58, 77, 0.11);
+  color: #1c82ca;
+  font-weight: 650;
 }
 
 .empty-card {
@@ -1032,9 +1203,17 @@ function onDraftWeightChange(payload: unknown) {
 }
 
 .record-delta {
+  display: flex;
+  align-items: center;
+  gap: 3rpx;
   font-size: 24rpx;
   line-height: 1;
   font-weight: 600;
+}
+
+.record-delta-icon {
+  flex-shrink: 0;
+  font-size: 23rpx;
 }
 
 .record-delta-up {
@@ -1219,10 +1398,217 @@ function onDraftWeightChange(payload: unknown) {
   background: #e1e3e7;
 }
 
+.entry-record-time {
+  display: flex;
+  align-items: center;
+  height: 62rpx;
+  margin-top: 18rpx;
+  border-radius: 20rpx;
+  background: #f2f4f7;
+  padding: 0 18rpx;
+  color: #777a83;
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
+}
+
+.entry-record-time-active {
+  transform: scale(0.985);
+  background: #e9ecf1;
+}
+
+.entry-record-time-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1686de;
+}
+
+.entry-record-time-label {
+  margin-left: 10rpx;
+  font-size: 23rpx;
+  line-height: 1;
+}
+
+.entry-record-time-value {
+  flex: 1;
+  margin-right: 4rpx;
+  color: #282b31;
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1;
+  text-align: right;
+}
+
+.entry-photo-panel,
+.entry-note-panel {
+  margin-top: 16rpx;
+  border: 1rpx solid rgba(30, 36, 48, 0.05);
+  border-radius: 24rpx;
+  background: #f6f7f9;
+}
+
+.entry-photo-panel {
+  padding: 14rpx;
+}
+
+.entry-photo-empty {
+  display: flex;
+  align-items: center;
+  min-height: 104rpx;
+  padding: 0 16rpx;
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+
+.entry-photo-empty-active {
+  opacity: 0.72;
+  transform: scale(0.985);
+}
+
+.entry-photo-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 68rpx;
+  width: 68rpx;
+  flex-shrink: 0;
+  border-radius: 20rpx;
+  background: #dcecf9;
+  color: #1686de;
+}
+
+.entry-photo-empty-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-left: 18rpx;
+}
+
+.entry-photo-empty-title {
+  color: #292c33;
+  font-size: 25rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.entry-photo-empty-subtitle {
+  margin-top: 8rpx;
+  color: #999ca5;
+  font-size: 21rpx;
+  line-height: 1.2;
+}
+
+.entry-photo-preview-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.entry-photo-preview {
+  height: 112rpx;
+  width: 112rpx;
+  flex-shrink: 0;
+  border-radius: 20rpx;
+  background: #e5e7eb;
+}
+
+.entry-photo-actions {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-left: 18rpx;
+}
+
+.entry-photo-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+
+.entry-photo-action + .entry-photo-action {
+  margin-top: 8rpx;
+}
+
+.entry-photo-action-primary {
+  background: #e3effa;
+  color: #1686de;
+}
+
+.entry-photo-action-danger {
+  background: #f8e9e7;
+  color: #d25c51;
+}
+
+.entry-photo-action-active {
+  opacity: 0.72;
+  transform: scale(0.98);
+}
+
+.entry-photo-action text {
+  margin-left: 8rpx;
+}
+
+.entry-note-panel {
+  position: relative;
+  padding: 18rpx 18rpx 36rpx;
+}
+
+.entry-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #555861;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.entry-note-photo-badge {
+  display: flex;
+  align-items: center;
+  border-radius: 999rpx;
+  background: #e7e2fc;
+  padding: 7rpx 12rpx;
+  color: #7162e8;
+  font-size: 19rpx;
+}
+
+.entry-note-photo-badge text {
+  margin-left: 5rpx;
+}
+
+.entry-note-textarea {
+  width: 100%;
+  height: 118rpx;
+  box-sizing: border-box;
+  margin-top: 12rpx;
+  color: #24272e;
+  font-size: 24rpx;
+  line-height: 1.45;
+}
+
+.entry-note-placeholder {
+  color: #b1b3bb;
+}
+
+.entry-note-counter {
+  position: absolute;
+  right: 18rpx;
+  bottom: 12rpx;
+  color: #a4a7af;
+  font-size: 19rpx;
+  line-height: 1;
+}
+
 .entry-readout {
-  margin-top: 82rpx;
+  margin-top: 48rpx;
   display: flex;
   justify-content: center;
+}
+
+.entry-readout-compact {
+  margin-top: 28rpx;
 }
 
 .entry-readout-card {

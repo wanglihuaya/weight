@@ -29,7 +29,7 @@ test('buildWidgetPanelView maps real records into every widget summary', () => {
   assert.equal(view.hasRecords, true)
   assert.equal(view.currentWeightLabel, '68.2')
   assert.equal(view.deltaLabel, '1.8')
-  assert.equal(view.deltaArrow, '↓')
+  assert.equal(view.deltaIcon, 'i-lucide-arrow-down')
   assert.equal(view.trackedDays, 28)
   assert.equal(view.latestDateLabel, '7月17日')
   assert.equal(view.weekdays[0].valueLabel, '69.0')

@@ -7,6 +7,7 @@ import { initCloudDevelopment } from '@/services/cloud'
 defineAppJson({
   pages: [
     'pages/index/index',
+    'pages/record-detail/index',
     'pages/data/index',
     'pages/form/index',
     'pages/ability/index',

@@ -35,6 +35,8 @@ declare module 'wevu' {
     't-cell': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/cell/cell"), WeappComponent<ComponentProp<"t-cell">>>;
     TCellGroup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/cell-group/cell-group"), WeappComponent<ComponentProp<"t-cell-group">>>;
     't-cell-group': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/cell-group/cell-group"), WeappComponent<ComponentProp<"t-cell-group">>>;
+    TDateTimePicker: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/date-time-picker/date-time-picker"), WeappComponent<ComponentProp<"t-date-time-picker">>>;
+    't-date-time-picker': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/date-time-picker/date-time-picker"), WeappComponent<ComponentProp<"t-date-time-picker">>>;
     TDialog: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/dialog/dialog"), WeappComponent<ComponentProp<"t-dialog">>>;
     't-dialog': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/dialog/dialog"), WeappComponent<ComponentProp<"t-dialog">>>;
     TFab: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/fab/fab"), WeappComponent<ComponentProp<"t-fab">>>;
@@ -45,8 +47,6 @@ declare module 'wevu' {
     't-input': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/input/input"), WeappComponent<ComponentProp<"t-input">>>;
     TNoticeBar: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>;
     't-notice-bar': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>;
-    TPopup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>;
-    't-popup': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>;
     TProgress: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>;
     't-progress': __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>;
     TQrcode: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/qrcode/qrcode"), WeappComponent<ComponentProp<"t-qrcode">>>;
@@ -83,6 +83,7 @@ declare module 'wevu' {
     WeightDashboard: typeof import("../src/components/WeightDashboard/index.vue")['default'];
     WeightEntryRuler: typeof import("../src/components/WeightDashboard/WeightEntryRuler.vue")['default'];
     WeightRuler: typeof import("../src/components/WeightRuler/index.vue")['default'];
+    WeightTrendChart: typeof import("../src/components/WeightDashboard/WeightTrendChart.vue")['default'];
   }
 }
 
@@ -103,12 +104,12 @@ declare global {
   const TButton: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/button/button"), WeappComponent<ComponentProp<"t-button">>>
   const TCell: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/cell/cell"), WeappComponent<ComponentProp<"t-cell">>>
   const TCellGroup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/cell-group/cell-group"), WeappComponent<ComponentProp<"t-cell-group">>>
+  const TDateTimePicker: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/date-time-picker/date-time-picker"), WeappComponent<ComponentProp<"t-date-time-picker">>>
   const TDialog: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/dialog/dialog"), WeappComponent<ComponentProp<"t-dialog">>>
   const TFab: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/fab/fab"), WeappComponent<ComponentProp<"t-fab">>>
   const TIcon: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/icon/icon"), WeappComponent<ComponentProp<"t-icon">>>
   const TInput: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/input/input"), WeappComponent<ComponentProp<"t-input">>>
   const TNoticeBar: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/notice-bar/notice-bar"), WeappComponent<ComponentProp<"t-notice-bar">>>
-  const TPopup: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/popup/popup"), WeappComponent<ComponentProp<"t-popup">>>
   const TProgress: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/progress/progress"), WeappComponent<ComponentProp<"t-progress">>>
   const TQrcode: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/qrcode/qrcode"), WeappComponent<ComponentProp<"t-qrcode">>>
   const TRadio: __WeappComponentImport<typeof import("tdesign-miniprogram/miniprogram_dist/radio/radio"), WeappComponent<ComponentProp<"t-radio">>>
@@ -129,4 +130,5 @@ declare global {
   const WeightDashboard: typeof import("../src/components/WeightDashboard/index.vue")['default']
   const WeightEntryRuler: typeof import("../src/components/WeightDashboard/WeightEntryRuler.vue")['default']
   const WeightRuler: typeof import("../src/components/WeightRuler/index.vue")['default']
+  const WeightTrendChart: typeof import("../src/components/WeightDashboard/WeightTrendChart.vue")['default']
 }

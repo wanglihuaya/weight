@@ -6,6 +6,7 @@ export interface CreateWeightRecordInput {
   weight: number
   mode: WeightEntryModeKey
   note?: string
+  photoFileIds?: string[]
   recordedAt?: string
 }
 
@@ -17,6 +18,9 @@ function normalizeWeightRecord(record: Partial<CloudWeightRecord>): CloudWeightR
     recordedAt: String(record.recordedAt ?? ''),
     mode: (record.mode ?? 'now') as WeightEntryModeKey,
     note: record.note,
+    photoFileIds: Array.isArray(record.photoFileIds)
+      ? record.photoFileIds.filter(fileId => typeof fileId === 'string' && fileId.length > 0)
+      : [],
   }
 }
 
@@ -46,6 +50,20 @@ export async function getWeightSummary() {
   return result.summary ?? null
 }
 
+export async function getWeightRecord(id: string) {
+  await ensureSilentLogin()
+  const result = await callCloudFunction<{ record?: CloudWeightRecord }>('weight-records', {
+    action: 'get',
+    id,
+  })
+
+  if (!result.record) {
+    throw new Error('体重记录不存在')
+  }
+
+  return normalizeWeightRecord(result.record)
+}
+
 export async function createWeightRecord(input: CreateWeightRecordInput) {
   await ensureSilentLogin()
   const recordedAt = input.recordedAt ?? new Date().toISOString()
@@ -56,6 +74,7 @@ export async function createWeightRecord(input: CreateWeightRecordInput) {
     weight: Number(input.weight.toFixed(1)),
     mode: input.mode,
     note: input.note?.trim() || '',
+    photoFileIds: input.photoFileIds ?? [],
     recordedAt,
     recordDate: serializeRecordDate(new Date(recordedAt)),
   })

@@ -103,7 +103,7 @@ export function buildSettingsSnapshot(
   const weightFactor = isPound ? 2.2046226218 : 1
 
   return {
-    membershipTitle: 'MyWeight² 会员',
+    membershipTitle: 'iiccon会员',
     membershipBadge: '高级版',
     baselineWeight: preferences.baselineWeight * weightFactor,
     targetWeight: preferences.targetWeight * weightFactor,

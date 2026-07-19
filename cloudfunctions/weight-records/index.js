@@ -15,6 +15,20 @@ const {
 const MAX_LIST_LIMIT = 500
 const SUMMARY_BATCH_SIZE = 100
 const MAX_SUMMARY_RECORDS = 5000
+const MAX_NOTE_LENGTH = 200
+const MAX_PHOTO_COUNT = 3
+
+function normalizePhotoFileIds(value) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return [...new Set(value
+    .filter(fileId => typeof fileId === 'string')
+    .map(fileId => fileId.trim())
+    .filter(fileId => fileId.startsWith('cloud://') && fileId.length <= 512))]
+    .slice(0, MAX_PHOTO_COUNT)
+}
 
 /**
  * 确保业务集合存在。
@@ -54,7 +68,8 @@ async function createRecord(event, openid, weightRecords) {
   const now = new Date().toISOString()
   const recordDate = resolveRecordDate(event.recordDate || recordedAt)
   const mode = ['now', 'photo', 'note'].includes(event.mode) ? event.mode : 'now'
-  const note = typeof event.note === 'string' ? event.note.trim().slice(0, 120) : ''
+  const note = typeof event.note === 'string' ? event.note.trim().slice(0, MAX_NOTE_LENGTH) : ''
+  const photoFileIds = normalizePhotoFileIds(event.photoFileIds)
   const requestId = typeof event.requestId === 'string' ? event.requestId.trim().slice(0, 80) : ''
 
   if (requestId) {
@@ -75,6 +90,7 @@ async function createRecord(event, openid, weightRecords) {
       recordedAt: recordedAt.toISOString(),
       mode,
       note,
+      photoFileIds,
       requestId,
       createdAt: now,
       updatedAt: now,
@@ -90,7 +106,33 @@ async function createRecord(event, openid, weightRecords) {
       recordedAt: recordedAt.toISOString(),
       mode,
       note,
+      photoFileIds,
     }),
+  }
+}
+
+/**
+ * 查询当前用户的一条体重记录，用于详情页展示。
+ *
+ * @param {object} event 包含记录 id
+ * @param {string} openid 当前用户 OPENID
+ * @param {DB.Collection} weightRecords 体重记录集合
+ * @returns {Promise<{record: object}>}
+ */
+async function getRecord(event, openid, weightRecords) {
+  const id = typeof event.id === 'string' ? event.id.trim() : ''
+  if (!id) {
+    throw new Error('INVALID_RECORD_ID')
+  }
+
+  const response = await weightRecords.where({ _id: id, openid }).limit(1).get()
+  const record = response.data?.[0]
+  if (!record) {
+    throw new Error('RECORD_NOT_FOUND')
+  }
+
+  return {
+    record: normalizeRecord(record),
   }
 }
 
@@ -186,6 +228,7 @@ async function summarizeRecords(event, openid, weightRecords) {
  *
  * 支持的 action：
  * - create：新增记录
+ * - get：查询单条记录
  * - list：分页查询记录
  * - summary：获取统计摘要
  *
@@ -207,6 +250,10 @@ exports.main = async (event = {}) => {
 
   if (event.action === 'create') {
     return createRecord(event, openid, weightRecords)
+  }
+
+  if (event.action === 'get') {
+    return getRecord(event, openid, weightRecords)
   }
 
   if (event.action === 'list') {

@@ -134,6 +134,26 @@ declare module 'weapp-vite/typed-components' {
       readonly theme?: 'default' | 'card';
       readonly title?: string;
     };
+    't-date-time-picker': {
+      readonly autoClose?: boolean;
+      readonly cancelBtn?: string;
+      readonly confirmBtn?: string;
+      readonly defaultValue?: DateValue;
+      readonly end?: string | number;
+      readonly filter?: (type: TimeModeValues, columns: DateTimePickerColumn) => DateTimePickerColumn;
+      readonly format?: string;
+      readonly formatter?: (option: DateTimePickerColumnItem, columnIndex: number) => DateTimePickerColumnItem;
+      readonly header?: boolean;
+      readonly mode?: DateTimePickerMode;
+      readonly popupProps?: PopupProps;
+      readonly showWeek?: boolean;
+      readonly start?: string | number;
+      readonly steps?: { [key in TimeModeValues]?: number };
+      readonly title?: string;
+      readonly usePopup?: boolean;
+      readonly value?: DateValue;
+      readonly visible?: boolean;
+    };
     't-dialog': {
       readonly actions?: Array<ButtonProps>;
       readonly buttonLayout?: 'horizontal' | 'vertical';
@@ -218,20 +238,6 @@ declare module 'weapp-vite/typed-components' {
       readonly suffixIcon?: string | object;
       readonly theme?: 'info' | 'success' | 'warning' | 'error';
       readonly visible?: boolean;
-    };
-    't-popup': {
-      readonly closeBtn?: boolean;
-      readonly closeOnOverlayClick?: boolean;
-      readonly content?: string;
-      readonly defaultVisible?: boolean;
-      readonly duration?: number;
-      readonly overlayProps?: OverlayProps;
-      readonly placement?: 'top' | 'left' | 'right' | 'bottom' | 'center';
-      readonly preventScrollThrough?: boolean;
-      readonly showOverlay?: boolean;
-      readonly usingCustomNavbar?: boolean;
-      readonly visible?: boolean;
-      readonly zIndex?: number;
     };
     't-progress': {
       readonly color?: string | Array<string> | Record<string, string>;
@@ -472,6 +478,11 @@ declare module 'weapp-vite/typed-components' {
       readonly min?: number;
       readonly modelValue?: number;
       readonly step?: number;
+    };
+    WeightTrendChart: {
+      readonly model?: any;
+      readonly showTarget?: boolean;
+      readonly targetWeight?: number;
     };
   }
   export type ComponentPropName = keyof ComponentProps;

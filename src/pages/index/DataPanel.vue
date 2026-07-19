@@ -38,15 +38,15 @@ const monthStatusText = computed(() => {
 const displayWeightChange = computed(() => (
   dataView.value.weightChangeLabel === '--' ? '0.0' : dataView.value.weightChangeLabel
 ))
-const weightChangeDirection = computed(() => {
+const weightChangeDirectionIcon = computed(() => {
   const value = Number(displayWeightChange.value)
   if (value > 0) {
-    return '↑'
+    return 'i-lucide-arrow-up'
   }
   if (value < 0) {
-    return '↓'
+    return 'i-lucide-arrow-down'
   }
-  return '→'
+  return 'i-lucide-arrow-right'
 })
 
 onMounted(() => {
@@ -67,6 +67,17 @@ function shiftMonth(offset: number) {
   const nextMonth = new Date(visibleMonthTimestamp.value)
   nextMonth.setMonth(nextMonth.getMonth() + offset)
   visibleMonthTimestamp.value = getMonthStart(nextMonth).getTime()
+}
+
+function openRecordDetail(event: WechatMiniprogram.TouchEvent) {
+  const recordId = String(event.currentTarget.dataset.recordId || '')
+  if (!recordId) {
+    return
+  }
+
+  wx.navigateTo({
+    url: `/pages/record-detail/index?id=${encodeURIComponent(recordId)}`,
+  })
 }
 
 watch(visibleMonthTimestamp, (month) => {
@@ -131,7 +142,7 @@ async function loadMonthData(month: number) {
             :hover-stay-time="80"
             @tap="shiftMonth(-1)"
           >
-            <view class="nav-chevron nav-chevron-left" />
+            <view class="nav-chevron i-lucide-chevron-left" />
           </view>
           <view
             class="calendar-nav-btn calendar-nav-btn-next"
@@ -140,7 +151,7 @@ async function loadMonthData(month: number) {
             :hover-stay-time="80"
             @tap="shiftMonth(1)"
           >
-            <view class="nav-chevron nav-chevron-right" />
+            <view class="nav-chevron i-lucide-chevron-right" />
           </view>
         </view>
       </view>
@@ -188,7 +199,7 @@ async function loadMonthData(month: number) {
           <text class="month-summary-label">体重变化</text>
           <view class="month-summary-change-row">
             <view class="change-direction">
-              {{ weightChangeDirection }}
+              <view class="change-direction-icon" :class="weightChangeDirectionIcon" />
             </view>
             <view class="month-summary-value">
               <text>{{ displayWeightChange }}</text>
@@ -198,7 +209,7 @@ async function loadMonthData(month: number) {
         </view>
 
         <view class="summary-chevron-wrap">
-          <view class="summary-chevron" />
+          <view class="summary-chevron i-lucide-chevron-right" />
         </view>
       </view>
     </view>
@@ -207,13 +218,67 @@ async function loadMonthData(month: number) {
       <view class="week-title">
         {{ group.label }}
       </view>
-      <view class="week-card">
-        <view class="week-card-content">
+      <view class="week-card" :class="group.hasRecords ? 'week-card-records' : 'week-card-empty'">
+        <view v-if="!group.hasRecords" class="week-card-content">
           <view class="week-dot" :class="group.hasRecords ? 'week-dot-active' : ''" />
           <text class="week-summary" :class="group.hasRecords ? 'week-summary-active' : ''">
             {{ group.summaryText }}
           </text>
         </view>
+
+        <block v-else>
+          <view
+            v-for="record in group.records"
+            :key="record.id"
+            class="week-record"
+            hover-class="week-record-active"
+            :data-record-id="record.id"
+            @tap="openRecordDetail"
+          >
+            <view class="week-record-main">
+              <view class="week-dot week-dot-active" />
+              <view class="week-record-weight">
+                <text class="week-record-value">{{ record.weightLabel }}</text>
+                <text class="week-record-unit">千克</text>
+              </view>
+              <view class="week-record-delta" :class="`week-record-delta-${record.deltaDirection}`">
+                <view
+                  class="week-record-delta-icon"
+                  :class="record.deltaDirection === 'up'
+                    ? 'i-lucide-arrow-up'
+                    : record.deltaDirection === 'down'
+                      ? 'i-lucide-arrow-down'
+                      : 'i-lucide-arrow-right'"
+                />
+                <text>{{ record.deltaLabel }}</text>
+                <text class="week-record-delta-unit">千克</text>
+              </view>
+              <view class="week-record-date">
+                <text>{{ record.dateLabel }}</text>
+                <text class="week-record-time">{{ record.timeLabel }}</text>
+              </view>
+              <view class="week-record-chevron i-lucide-chevron-right" />
+            </view>
+
+            <view v-if="record.photoFileId || record.notePreview" class="week-record-attachments">
+              <image
+                v-if="record.photoFileId"
+                class="week-record-photo"
+                :src="record.photoFileId"
+                mode="aspectFill"
+              />
+              <view v-if="record.notePreview" class="week-record-note">
+                <view class="week-record-note-icon">
+                  <t-icon name="edit-1" size="24rpx" />
+                </view>
+                <text class="week-record-note-text" :max-lines="2">{{ record.notePreview }}</text>
+              </view>
+              <view v-if="record.photoCount > 1" class="week-record-photo-count">
+                +{{ record.photoCount - 1 }}
+              </view>
+            </view>
+          </view>
+        </block>
       </view>
     </view>
   </view>
@@ -284,19 +349,8 @@ async function loadMonthData(month: number) {
 }
 
 .nav-chevron {
-  height: 20rpx;
-  width: 20rpx;
-  border-top: 5rpx solid #3095ed;
-  border-right: 5rpx solid #3095ed;
-  border-radius: 2rpx;
-}
-
-.nav-chevron-left {
-  transform: rotate(-135deg);
-}
-
-.nav-chevron-right {
-  transform: rotate(45deg);
+  color: #3095ed;
+  font-size: 34rpx;
 }
 
 .calendar-status {
@@ -482,9 +536,10 @@ async function loadMonthData(month: number) {
   border-radius: 999rpx;
   background: #399bed;
   color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 600;
-  line-height: 1;
+}
+
+.change-direction-icon {
+  font-size: 24rpx;
 }
 
 .summary-chevron-wrap {
@@ -497,12 +552,8 @@ async function loadMonthData(month: number) {
 }
 
 .summary-chevron {
-  height: 18rpx;
-  width: 18rpx;
-  border-top: 6rpx solid #0b0c10;
-  border-right: 6rpx solid #0b0c10;
-  border-radius: 2rpx;
-  transform: rotate(45deg);
+  color: #0b0c10;
+  font-size: 34rpx;
 }
 
 .week-section {
@@ -522,10 +573,19 @@ async function loadMonthData(month: number) {
 .week-card {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 999rpx;
   background: #ffffff;
-  padding: 28rpx 30rpx;
   box-shadow: 0 16rpx 38rpx rgba(24, 30, 47, 0.025);
+}
+
+.week-card-empty {
+  border-radius: 999rpx;
+  padding: 28rpx 30rpx;
+}
+
+.week-card-records {
+  overflow: hidden;
+  border-radius: 40rpx;
+  padding: 0 28rpx;
 }
 
 .week-card-content {
@@ -561,5 +621,165 @@ async function loadMonthData(month: number) {
 .week-summary-active {
   color: #55575f;
   font-weight: 500;
+}
+
+.week-record {
+  padding: 28rpx 0;
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+
+.week-record + .week-record {
+  border-top: 1rpx solid #eceef1;
+}
+
+.week-record-active {
+  opacity: 0.72;
+  transform: scale(0.99);
+}
+
+.week-record-main {
+  display: flex;
+  align-items: center;
+  min-height: 54rpx;
+}
+
+.week-record-weight {
+  display: flex;
+  align-items: baseline;
+  width: 178rpx;
+  margin-left: 20rpx;
+  color: #111319;
+  white-space: nowrap;
+}
+
+.week-record-value {
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.week-record-unit {
+  margin-left: 7rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.week-record-delta {
+  display: flex;
+  align-items: center;
+  gap: 2rpx;
+  width: 150rpx;
+  font-size: 26rpx;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.week-record-delta-icon {
+  flex-shrink: 0;
+  font-size: 24rpx;
+}
+
+.week-record-delta-up {
+  color: #ef6a61;
+}
+
+.week-record-delta-down,
+.week-record-delta-flat {
+  color: #3298ef;
+}
+
+.week-record-delta-unit {
+  margin-left: 4rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.week-record-chevron {
+  flex-shrink: 0;
+  color: #c3c5ca;
+  font-size: 30rpx;
+}
+
+.week-record-date {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 10rpx;
+  color: #888a91;
+  font-size: 23rpx;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.week-record-time {
+  margin-top: 6rpx;
+  color: #b0b2b8;
+  font-size: 19rpx;
+}
+
+.week-record-attachments {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  margin-top: 20rpx;
+  padding-left: 44rpx;
+}
+
+.week-record-photo {
+  height: 112rpx;
+  width: 112rpx;
+  flex-shrink: 0;
+  border-radius: 18rpx;
+  background: #e9eaed;
+}
+
+.week-record-note {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  margin-left: 14rpx;
+  border-radius: 18rpx;
+  background: #f6f7f9;
+  padding: 14rpx 16rpx;
+}
+
+.week-record-note:first-child {
+  margin-left: 0;
+}
+
+.week-record-note-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40rpx;
+  width: 40rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  background: #fbe5d5;
+  color: #ef7d39;
+}
+
+.week-record-note-text {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10rpx;
+  color: #666971;
+  font-size: 21rpx;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.week-record-photo-count {
+  position: absolute;
+  left: 122rpx;
+  bottom: 8rpx;
+  border-radius: 999rpx;
+  background: rgba(20, 22, 28, 0.72);
+  padding: 5rpx 9rpx;
+  color: #ffffff;
+  font-size: 17rpx;
+  line-height: 1;
 }
 </style>

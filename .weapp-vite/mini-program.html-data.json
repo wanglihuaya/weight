@@ -2748,6 +2748,90 @@
       ]
     },
     {
+      "name": "t-date-time-picker",
+      "description": "自动导入的小程序组件",
+      "attributes": [
+        {
+          "name": "autoClose",
+          "description": "类型: boolean"
+        },
+        {
+          "name": "cancelBtn",
+          "description": "类型: string"
+        },
+        {
+          "name": "confirmBtn",
+          "description": "类型: string"
+        },
+        {
+          "name": "defaultValue",
+          "description": "类型: DateValue"
+        },
+        {
+          "name": "end",
+          "description": "类型: string | number"
+        },
+        {
+          "name": "filter",
+          "description": "类型: (type: TimeModeValues, columns: DateTimePickerColumn) => DateTimePickerColumn"
+        },
+        {
+          "name": "format",
+          "description": "类型: string"
+        },
+        {
+          "name": "formatter",
+          "description": "类型: (option: DateTimePickerColumnItem, columnIndex: number) => DateTimePickerColumnItem"
+        },
+        {
+          "name": "header",
+          "description": "类型: boolean"
+        },
+        {
+          "name": "mode",
+          "description": "类型: DateTimePickerMode"
+        },
+        {
+          "name": "popupProps",
+          "description": "类型: PopupProps"
+        },
+        {
+          "name": "showWeek",
+          "description": "类型: boolean"
+        },
+        {
+          "name": "start",
+          "description": "类型: string | number"
+        },
+        {
+          "name": "steps",
+          "description": "类型: { [key in TimeModeValues]?: number }"
+        },
+        {
+          "name": "title",
+          "description": "类型: string"
+        },
+        {
+          "name": "usePopup",
+          "description": "类型: boolean"
+        },
+        {
+          "name": "value",
+          "description": "类型: DateValue"
+        },
+        {
+          "name": "visible",
+          "description": "类型: boolean"
+        }
+      ],
+      "references": [
+        {
+          "name": "weapp-vite 自动导入组件",
+          "url": "https://vite.icebreaker.top/guide/auto-import-components.html"
+        }
+      ]
+    },
+    {
       "name": "t-dialog",
       "description": "自动导入的小程序组件",
       "attributes": [
@@ -3098,66 +3182,6 @@
         {
           "name": "visible",
           "description": "类型: boolean"
-        }
-      ],
-      "references": [
-        {
-          "name": "weapp-vite 自动导入组件",
-          "url": "https://vite.icebreaker.top/guide/auto-import-components.html"
-        }
-      ]
-    },
-    {
-      "name": "t-popup",
-      "description": "自动导入的小程序组件",
-      "attributes": [
-        {
-          "name": "closeBtn",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "closeOnOverlayClick",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "content",
-          "description": "类型: string"
-        },
-        {
-          "name": "defaultVisible",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "duration",
-          "description": "类型: number"
-        },
-        {
-          "name": "overlayProps",
-          "description": "类型: OverlayProps"
-        },
-        {
-          "name": "placement",
-          "description": "类型: 'top' | 'left' | 'right' | 'bottom' | 'center'"
-        },
-        {
-          "name": "preventScrollThrough",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "showOverlay",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "usingCustomNavbar",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "visible",
-          "description": "类型: boolean"
-        },
-        {
-          "name": "zIndex",
-          "description": "类型: number"
         }
       ],
       "references": [
@@ -4702,6 +4726,30 @@
         },
         {
           "name": "step",
+          "description": "类型: number"
+        }
+      ],
+      "references": [
+        {
+          "name": "weapp-vite 自动导入组件",
+          "url": "https://vite.icebreaker.top/guide/auto-import-components.html"
+        }
+      ]
+    },
+    {
+      "name": "WeightTrendChart",
+      "description": "自动导入的小程序组件",
+      "attributes": [
+        {
+          "name": "model",
+          "description": "类型: any"
+        },
+        {
+          "name": "showTarget",
+          "description": "类型: boolean"
+        },
+        {
+          "name": "targetWeight",
           "description": "类型: number"
         }
       ],

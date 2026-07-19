@@ -7,6 +7,7 @@ export interface CloudWeightRecord {
   recordedAt: string
   mode: WeightEntryModeKey
   note?: string
+  photoFileIds?: string[]
 }
 
 export interface WeightDashboardSummary {
@@ -24,25 +25,10 @@ export interface WeightDashboardSummary {
   bmiMarkerIndex: number
 }
 
-export interface WeightDashboardChartPoint {
-  key: string
-  xPercent: number
-  yPercent: number
-  value: number
-  dateLabel: string
-  highlighted: boolean
-}
-
 export interface WeightDashboardView {
   hasRecords: boolean
   summary: WeightDashboardSummary
   stats: WeightDashboardStats
-  chart: {
-    rangeLabel: string
-    yTicks: number[]
-    points: WeightDashboardChartPoint[]
-    xLabels: string[]
-  }
   todayLabel: string
   todayRecord: WeightTimelineRecord | null
   todayEmptyText: string
@@ -88,6 +74,19 @@ export interface WeekGroup {
   deltaLabel: string
   rangeLabel: string
   hasRecords: boolean
+  records: WeightMonthlyRecordItem[]
+}
+
+export interface WeightMonthlyRecordItem {
+  id: string
+  weightLabel: string
+  deltaLabel: string
+  deltaDirection: 'up' | 'down' | 'flat'
+  dateLabel: string
+  timeLabel: string
+  notePreview: string
+  photoFileId: string
+  photoCount: number
 }
 
 export interface MonthlyRecordsView {
@@ -157,6 +156,17 @@ function formatWeekday(value: string) {
   return weekdays[parseDateKey(value).getDay()]
 }
 
+function formatRecordTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '--:--'
+  }
+
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 function diffDaysInclusive(startKey: string, endDate: Date | number | string) {
   const start = startOfDay(parseDateKey(startKey)).getTime()
   const end = startOfDay(endDate).getTime()
@@ -191,52 +201,6 @@ function sortByRecordedAtAsc(records: CloudWeightRecord[]) {
   })
 }
 
-function buildWeightTicks(values: number[]) {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-
-  if (min === max) {
-    return [roundTo(max + 0.5), roundTo(max), roundTo(Math.max(0, min - 0.5))]
-  }
-
-  const padding = Math.max(0.2, (max - min) * 0.3)
-  const yMax = roundTo(max + padding)
-  const yMin = roundTo(Math.max(0, min - padding))
-  return [yMax, roundTo((yMax + yMin) / 2), yMin]
-}
-
-function buildChartPoints(records: CloudWeightRecord[]) {
-  if (records.length === 0) {
-    return {
-      yTicks: [0, 0, 0],
-      points: [] as WeightDashboardChartPoint[],
-      xLabels: [] as string[],
-    }
-  }
-
-  const values = records.map(record => record.weight)
-  const [yMax, , yMin] = buildWeightTicks(values)
-  const range = Math.max(0.6, yMax - yMin)
-  const positions = records.length === 1
-    ? [50]
-    : records.map((_, index) => roundTo(8 + (74 / Math.max(records.length - 1, 1)) * index, 2))
-
-  const points = records.map((record, index) => ({
-    key: record._id,
-    xPercent: positions[index] ?? 50,
-    yPercent: roundTo(((yMax - record.weight) / range) * 100, 2),
-    value: record.weight,
-    dateLabel: formatMonthDay(record.recordDate),
-    highlighted: index === records.length - 1,
-  }))
-
-  return {
-    yTicks: [yMax, roundTo((yMax + yMin) / 2), yMin],
-    points,
-    xLabels: points.slice(0, 4).map(point => point.dateLabel),
-  }
-}
-
 function summarizeRecord(record: CloudWeightRecord, previous?: CloudWeightRecord): WeightTimelineRecord {
   const delta = previous ? roundTo(record.weight - previous.weight) : 0
   return {
@@ -244,6 +208,24 @@ function summarizeRecord(record: CloudWeightRecord, previous?: CloudWeightRecord
     delta,
     dateText: `${formatMonthDay(record.recordDate)} ${formatWeekday(record.recordDate)}`,
     note: modeLabel(record.mode, record.note),
+  }
+}
+
+function buildMonthlyRecordItem(record: CloudWeightRecord, previous?: CloudWeightRecord): WeightMonthlyRecordItem {
+  const delta = previous ? roundTo(record.weight - previous.weight) : 0
+  const note = record.note?.trim() ?? ''
+  const photoFileIds = record.photoFileIds ?? []
+
+  return {
+    id: record._id,
+    weightLabel: formatWeightLabel(record.weight),
+    deltaLabel: formatSignedWeightLabel(delta),
+    deltaDirection: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
+    dateLabel: `${parseDateKey(record.recordDate).getMonth() + 1}/${parseDateKey(record.recordDate).getDate()} ${formatWeekday(record.recordDate)}`,
+    timeLabel: formatRecordTime(record.recordedAt),
+    notePreview: note,
+    photoFileId: photoFileIds[0] ?? '',
+    photoCount: photoFileIds.length,
   }
 }
 
@@ -452,12 +434,6 @@ export function buildWeightDashboardView(
         bmiMarkerIndex: 0,
       },
       stats,
-      chart: {
-        rangeLabel: '1个月',
-        yTicks: [0, 0, 0],
-        points: [],
-        xLabels: [],
-      },
       todayLabel: '今天',
       todayRecord: null,
       todayEmptyText: '无',
@@ -471,14 +447,7 @@ export function buildWeightDashboardView(
   const currentRecord = sortedAsc.at(-1)!
   const todayKey = getTodayKey(referenceDate)
   const currentWeekKeys = getCurrentWeekKeys(referenceDate)
-  const chartStartDate = new Date(safeReferenceDate)
-  chartStartDate.setDate(safeReferenceDate.getDate() - 27)
-  const chartStartKey = serializeRecordDate(chartStartDate)
-  const chartEndDate = new Date(safeReferenceDate)
-  chartEndDate.setDate(safeReferenceDate.getDate() - 1)
-  const chartEndKey = serializeRecordDate(chartEndDate)
-  const chartSource = sortedAsc.filter(record => record.recordDate >= chartStartKey && record.recordDate <= chartEndKey).slice(-5)
-  const chart = buildChartPoints(chartSource)
+  const chartStartKey = getLastNDaysStartKey(safeReferenceDate, 28)
   const recentRecords = sortedDesc.slice(0, 7).map((record, index) => summarizeRecord(record, sortedDesc[index + 1]))
   const currentWeight = normalizeWeight(currentRecord.weight)
   const startWeight = normalizeWeight(firstRecord.weight)
@@ -496,7 +465,7 @@ export function buildWeightDashboardView(
   return {
     hasRecords: true,
     summary: {
-      startLabel: formatMonthDay(firstRecord.recordDate),
+      startLabel: formatMonthDay(currentRecord.recordDate),
       startWeight,
       totalDays: diffDaysInclusive(firstRecord.recordDate, referenceDate),
       deltaFromStart: roundTo(currentWeight - startWeight),
@@ -510,12 +479,6 @@ export function buildWeightDashboardView(
       bmiMarkerIndex,
     },
     stats,
-    chart: {
-      rangeLabel: '1个月',
-      yTicks: chart.yTicks,
-      points: chart.points,
-      xLabels: chart.xLabels,
-    },
     todayLabel: '今天',
     todayRecord: currentRecord.recordDate === todayKey ? summarizeRecord(currentRecord, sortedDesc[1]) : null,
     todayEmptyText: '无',
@@ -534,10 +497,12 @@ export function buildMonthlyRecordsView(
   const today = startOfDay(referenceDate)
   const totalDays = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate()
   const leadingPlaceholders = mondayIndex(monthStart.getDay())
-  const latestDailyRecords = groupLatestDailyRecords(records)
   const monthPrefix = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, '0')}-`
+  const monthlyTimelineRecords = sortByRecordedAtAsc(records.filter(record => record.recordDate.startsWith(monthPrefix)))
+  const latestDailyRecords = groupLatestDailyRecords(monthlyTimelineRecords)
   const monthlyRecords = latestDailyRecords.filter(record => record.recordDate.startsWith(monthPrefix))
   const recordSet = new Set(monthlyRecords.map(record => record.recordDate))
+  const timelineIndexById = new Map(monthlyTimelineRecords.map((record, index) => [record._id, index]))
   const days: MonthDayCell[] = []
 
   for (let index = 0; index < leadingPlaceholders; index += 1) {
@@ -588,7 +553,7 @@ export function buildMonthlyRecordsView(
 
       const startDay = visibleDays[0]
       const endDay = visibleDays[visibleDays.length - 1]
-      const weeklyRecords = monthlyRecords.filter((record) => {
+      const weeklyRecords = monthlyTimelineRecords.filter((record) => {
         const day = parseDateKey(record.recordDate).getDate()
         return day >= startDay && day <= endDay
       })
@@ -606,6 +571,10 @@ export function buildMonthlyRecordsView(
       const rangeLabel = weeklyRecords.length > 0
         ? `${formatWeightLabel(Math.min(...weeklyRecords.map(record => record.weight)))} - ${formatWeightLabel(Math.max(...weeklyRecords.map(record => record.weight)))}`
         : '--'
+      const listRecords = [...weeklyRecords].reverse().map((record) => {
+        const timelineIndex = timelineIndexById.get(record._id) ?? 0
+        return buildMonthlyRecordItem(record, timelineIndex > 0 ? monthlyTimelineRecords[timelineIndex - 1] : undefined)
+      })
 
       return {
         key: `week-${index + 1}`,
@@ -617,6 +586,7 @@ export function buildMonthlyRecordsView(
         deltaLabel,
         rangeLabel,
         hasRecords: weeklyRecords.length > 0,
+        records: listRecords,
       }
     })
     .filter((group): group is WeekGroup => group !== null)

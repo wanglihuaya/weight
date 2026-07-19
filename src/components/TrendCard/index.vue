@@ -50,14 +50,14 @@ const progressValue = computed(() => {
   return Math.min(Math.max(raw, 0), 100)
 })
 
-function toneText(toneValue: TrendTone) {
+function toneIcon(toneValue: TrendTone) {
   if (toneValue === 'positive') {
-    return '↑'
+    return 'i-lucide-arrow-up'
   }
   if (toneValue === 'negative') {
-    return '↓'
+    return 'i-lucide-arrow-down'
   }
-  return '→'
+  return 'i-lucide-arrow-right'
 }
 
 function toneClass(toneValue: TrendTone) {
@@ -77,10 +77,10 @@ function toneClass(toneValue: TrendTone) {
       <text class="text-[24rpx] text-[#5b5876]">
         {{ title }}
       </text>
-      <text class="text-[20rpx]" :class="toneClass(tone)">
-        {{ toneText(tone) }}
-        {{ delta === undefined ? '--' : delta }}
-      </text>
+      <view class="flex items-center gap-[4rpx] text-[20rpx]" :class="toneClass(tone)">
+        <view class="text-[20rpx]" :class="toneIcon(tone)" />
+        <text>{{ delta === undefined ? '--' : delta }}</text>
+      </view>
     </view>
     <view class="mt-[12rpx] flex items-baseline gap-[6rpx]">
       <text class="text-[36rpx] font-bold text-[#1f1a3f]">

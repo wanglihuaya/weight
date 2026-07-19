@@ -14,7 +14,14 @@ const sampleRecords = [
   { _id: 'r4', weight: 70.8, recordDate: '2026-04-21', recordedAt: '2026-04-21T07:30:00.000Z', mode: 'now' },
   { _id: 'r5', weight: 71.0, recordDate: '2026-04-24', recordedAt: '2026-04-24T07:30:00.000Z', mode: 'note', note: '晨起空腹' },
   { _id: 'r6', weight: 71.1, recordDate: '2026-04-26', recordedAt: '2026-04-26T07:30:00.000Z', mode: 'now' },
-  { _id: 'r7', weight: 71.3, recordDate: '2026-04-26', recordedAt: '2026-04-26T13:30:00.000Z', mode: 'photo' },
+  {
+    _id: 'r7',
+    weight: 71.3,
+    recordDate: '2026-04-26',
+    recordedAt: '2026-04-26T13:30:00.000Z',
+    mode: 'photo',
+    photoFileIds: ['cloud://env/weight-records/r7.jpg'],
+  },
 ]
 
 test('groupLatestDailyRecords keeps only the latest entry per day', () => {
@@ -36,7 +43,7 @@ test('groupLatestDailyRecords keeps only the latest entry per day', () => {
 test('buildWeightDashboardView derives the home page summary from cloud records', () => {
   const view = buildWeightDashboardView(sampleRecords, new Date('2026-04-26T20:00:00+08:00'))
 
-  assert.equal(view.summary.startLabel, '3月30日')
+  assert.equal(view.summary.startLabel, '4月26日')
   assert.equal(view.summary.startWeight, 69.9)
   assert.equal(view.summary.totalDays, 28)
   assert.equal(view.summary.deltaFromStart, 1.4)
@@ -45,8 +52,6 @@ test('buildWeightDashboardView derives the home page summary from cloud records'
   assert.equal(view.todayRecord?.value, 71.3)
   assert.equal(view.todayRecord?.dateText, '4月26日 周日')
   assert.equal(view.recentRecords[0]?.note, '照片记录')
-  assert.equal(view.chart.points.length, 5)
-  assert.deepEqual(view.chart.xLabels, ['3月30日', '4月6日', '4月13日', '4月21日'])
 })
 
 test('buildWeightDashboardView exposes richer stats for the weight tab overview', () => {
@@ -85,12 +90,17 @@ test('buildMonthlyRecordsView builds the calendar and weekly summaries from reco
   assert.equal(view.days[27].label, '26')
   assert.equal(view.days[27].isRecorded, true)
   assert.equal(view.days[27].isToday, true)
-  assert.equal(view.weekGroups[3]?.summaryText, '3次记录 · 均重71.0千克')
+  assert.equal(view.weekGroups[3]?.summaryText, '4次记录 · 均重71.1千克')
   assert.equal(view.weekGroups[1]?.recordCount, 1)
   assert.equal(view.weekGroups[1]?.averageWeightLabel, '70.2')
   assert.equal(view.weekGroups[1]?.rangeLabel, '70.2 - 70.2')
   assert.equal(view.weekGroups[3]?.latestWeightLabel, '71.3')
   assert.equal(view.weekGroups[3]?.deltaLabel, '+0.5')
+  assert.equal(view.weekGroups[3]?.records.length, 4)
+  assert.equal(view.weekGroups[3]?.records[0]?.id, 'r7')
+  assert.equal(view.weekGroups[3]?.records[0]?.photoCount, 1)
+  assert.equal(view.weekGroups[3]?.records[0]?.photoFileId, 'cloud://env/weight-records/r7.jpg')
+  assert.equal(view.weekGroups[3]?.records[0]?.deltaLabel, '+0.2')
   assert.equal(view.weekGroups[4]?.summaryText, '无')
 })
 

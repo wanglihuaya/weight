@@ -92,7 +92,12 @@ const INDICATOR_RESET_DELAY = 140
 const navInfo = getNavbarInfo()
 const navbarHeightStyle = `padding-top: ${navInfo.paddingTop}px; height: calc(${navInfo.totalHeight}px); `
 const navbarTotalHeightStyle = `height: ${navInfo.totalHeight + 12}px; `
-const navbarTitleStyle = `margin-left: ${navInfo.centerLeft}px; width: ${navInfo.centerWidth}px; `
+const navbarTitleStyle = [
+  `margin-left: ${navInfo.centerLeft}px`,
+  `width: ${navInfo.centerWidth}px`,
+  `top: ${navInfo.menuRect.top - navInfo.paddingTop}px`,
+  `height: ${navInfo.menuRect.height}px`,
+].join(';')
 // Tab 指示器兜底样式 (非 Worklet 环境)
 const indicatorStyleFallback = computed(() => {
   const index = tabs.findIndex(tab => tab.key === activeKey.value)
@@ -416,10 +421,10 @@ onUnmounted(() => {
 
 .navbar-title-slot {
   left: 0;
-  top: 50%;
-  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
-  transform: translateY(-50%);
 }
 
 .home-scroll {
